@@ -36,6 +36,12 @@ class ServerSettings:
     mode: str = "real"
     api_key: str | None = None
     allow_live_orders: bool = False
+    qmt_path: str | None = None
+    account_id: str | None = None
+    account_type: str = "STOCK"
+    session_id: int | None = None
+    strategy_name: str = "qmtlink"
+    idempotency_db: str | None = None
 
     @classmethod
     def from_env(cls) -> ServerSettings:
@@ -46,4 +52,12 @@ class ServerSettings:
             mode=os.getenv("QMTLINK_MODE", defaults.mode),
             api_key=os.getenv("QMTLINK_API_KEY") or None,
             allow_live_orders=_env_bool("QMTLINK_ALLOW_LIVE_ORDERS"),
+            qmt_path=os.getenv("QMTLINK_QMT_PATH") or None,
+            account_id=os.getenv("QMTLINK_ACCOUNT_ID") or None,
+            account_type=os.getenv("QMTLINK_ACCOUNT_TYPE", defaults.account_type).upper(),
+            session_id=(
+                int(value) if (value := os.getenv("QMTLINK_SESSION_ID")) is not None else None
+            ),
+            strategy_name=os.getenv("QMTLINK_STRATEGY_NAME", defaults.strategy_name),
+            idempotency_db=os.getenv("QMTLINK_IDEMPOTENCY_DB") or None,
         )

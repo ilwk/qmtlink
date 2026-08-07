@@ -19,8 +19,10 @@ app = typer.Typer(help="CLI, SDK, and bridge for miniQMT/xtquant", no_args_is_he
 bridge_app = typer.Typer(help="Manage the local Windows Bridge", no_args_is_help=True)
 market_app = typer.Typer(help="Query market data", no_args_is_help=True)
 order_app = typer.Typer(help="Preview and submit orders", no_args_is_help=True)
+account_app = typer.Typer(help="Query account state", no_args_is_help=True)
 app.add_typer(bridge_app, name="bridge")
 app.add_typer(market_app, name="market")
+app.add_typer(account_app, name="account")
 app.add_typer(order_app, name="order")
 
 
@@ -40,14 +42,18 @@ def _handle_error(exc: Exception) -> None:
 @bridge_app.command("doctor")
 def bridge_doctor(pretty: bool = typer.Option(False, "--pretty")) -> None:
     xtquant_available = importlib.util.find_spec("xtquant") is not None
+    settings = ServerSettings.from_env()
+    qmt_configured = bool(settings.qmt_path and settings.account_id)
     emit(
         {
             "platform": platform.system().lower(),
             "python": platform.python_version(),
             "xtquant_importable": xtquant_available,
             "api_key_configured": bool(os.getenv("QMTLINK_API_KEY")),
+            "qmt_path_configured": bool(settings.qmt_path),
+            "account_configured": bool(settings.account_id),
             "ready_for_mock": True,
-            "ready_for_real": sys.platform == "win32" and xtquant_available,
+            "ready_for_real": sys.platform == "win32" and xtquant_available and qmt_configured,
         },
         pretty=pretty,
     )
@@ -66,6 +72,12 @@ def bridge_run(
         mode="mock" if mock else base.mode,
         api_key=base.api_key,
         allow_live_orders=base.allow_live_orders,
+        qmt_path=base.qmt_path,
+        account_id=base.account_id,
+        account_type=base.account_type,
+        session_id=base.session_id,
+        strategy_name=base.strategy_name,
+        idempotency_db=base.idempotency_db,
     )
     try:
         from qmtlink.server.runner import run_server
@@ -101,6 +113,45 @@ def market_quote(
     try:
         with _client() as client:
             emit(client.get_quotes(symbols), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@account_app.command("asset")
+def account_asset(pretty: bool = typer.Option(False, "--pretty")) -> None:
+    try:
+        with _client() as client:
+            emit(client.get_asset(), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@account_app.command("positions")
+def account_positions(pretty: bool = typer.Option(False, "--pretty")) -> None:
+    try:
+        with _client() as client:
+            emit(client.get_positions(), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@account_app.command("orders")
+def account_orders(
+    cancelable_only: bool = typer.Option(False, "--cancelable-only"),
+    pretty: bool = typer.Option(False, "--pretty"),
+) -> None:
+    try:
+        with _client() as client:
+            emit(client.get_orders(cancelable_only=cancelable_only), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@account_app.command("trades")
+def account_trades(pretty: bool = typer.Option(False, "--pretty")) -> None:
+    try:
+        with _client() as client:
+            emit(client.get_trades(), pretty=pretty)
     except Exception as exc:
         _handle_error(exc)
 
@@ -161,6 +212,31 @@ def order_place(
         with _client() as client:
             result = client.place_order(request) if live else client.preview_order(request)
             emit(result, pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@order_app.command("get")
+def order_get(
+    order_id: Annotated[str, typer.Option("--order-id")],
+    pretty: Annotated[bool, typer.Option("--pretty")] = False,
+) -> None:
+    try:
+        with _client() as client:
+            emit(client.get_order(order_id), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@order_app.command("cancel")
+def order_cancel(
+    order_id: Annotated[str, typer.Option("--order-id")],
+    live: Annotated[bool, typer.Option("--live", help="Submit the cancellation")] = False,
+    pretty: Annotated[bool, typer.Option("--pretty")] = False,
+) -> None:
+    try:
+        with _client() as client:
+            emit(client.cancel_order(order_id, live=live), pretty=pretty)
     except Exception as exc:
         _handle_error(exc)
 

@@ -56,3 +56,6 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.build-backend]
+source-include = ["ROADMAP.md", "docs/**", "qmtlink.env.example", "tests/**"]

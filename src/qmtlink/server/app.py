@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import time
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -11,7 +12,7 @@ from qmtlink import __version__
 from qmtlink.bridge import Bridge, create_bridge
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import OrderRequest, QuoteRequest
+from qmtlink.models import CancelRequest, OrderRequest, QuoteRequest
 
 
 def _success(data: object, started: float) -> dict[str, object]:
@@ -28,8 +29,16 @@ def create_app(
     settings: ServerSettings | None = None,
 ) -> FastAPI:
     settings = settings or ServerSettings.from_env()
-    backend = bridge or create_bridge(settings.mode)
-    app = FastAPI(title="QmtLink", version=__version__)
+    backend = bridge or create_bridge(settings)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            yield
+        finally:
+            backend.close()
+
+    app = FastAPI(title="QmtLink", version=__version__, lifespan=lifespan)
     app.state.bridge = backend
     app.state.settings = settings
 
@@ -85,6 +94,45 @@ def create_app(
         data = [quote.model_dump(mode="json") for quote in backend.get_quotes(payload.symbols)]
         return _success(data, started)
 
+    @app.get("/api/v1/account/asset")
+    async def account_asset(
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_asset().model_dump(mode="json"), started)
+
+    @app.get("/api/v1/account/positions")
+    async def account_positions(
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        data = [item.model_dump(mode="json") for item in backend.get_positions()]
+        return _success(data, started)
+
+    @app.get("/api/v1/account/orders")
+    async def account_orders(
+        cancelable_only: bool = False,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        data = [
+            item.model_dump(mode="json")
+            for item in backend.get_orders(cancelable_only=cancelable_only)
+        ]
+        return _success(data, started)
+
+    @app.get("/api/v1/account/trades")
+    async def account_trades(
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        data = [item.model_dump(mode="json") for item in backend.get_trades()]
+        return _success(data, started)
+
     @app.post("/api/v1/orders/preview")
     async def preview_order(
         payload: OrderRequest,
@@ -112,5 +160,40 @@ def create_app(
                 detail={"code": "LIVE_ORDERS_DISABLED", "message": "live orders are disabled"},
             )
         return _success(backend.place_order(payload).model_dump(mode="json"), started)
+
+    @app.get("/api/v1/orders/{order_id}")
+    async def get_order(
+        order_id: str,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        order = backend.get_order(order_id)
+        if order is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "ORDER_NOT_FOUND", "message": f"order {order_id} was not found"},
+            )
+        return _success(order.model_dump(mode="json"), started)
+
+    @app.post("/api/v1/orders/{order_id}/cancel")
+    async def cancel_order(
+        order_id: str,
+        payload: CancelRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        if not payload.live:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "LIVE_FLAG_REQUIRED", "message": "set live=true to cancel"},
+            )
+        if not settings.allow_live_orders:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "LIVE_ORDERS_DISABLED", "message": "live orders are disabled"},
+            )
+        return _success(backend.cancel_order(order_id).model_dump(mode="json"), started)
 
     return app

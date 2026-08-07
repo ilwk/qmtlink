@@ -52,3 +52,13 @@ class OrderResult(BaseModel):
     order_id: str
     status: str
     submitted: bool
+
+
+class CancelRequest(BaseModel):
+    live: bool = False
+
+
+class CancelResult(BaseModel):
+    order_id: str
+    status: str
+    submitted: bool

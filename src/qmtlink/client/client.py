@@ -6,7 +6,17 @@ import httpx
 
 from qmtlink.config import ClientSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import OrderPreview, OrderRequest, OrderResult, Quote
+from qmtlink.models import (
+    AccountAsset,
+    CancelResult,
+    OrderPreview,
+    OrderRecord,
+    OrderRequest,
+    OrderResult,
+    Position,
+    Quote,
+    TradeRecord,
+)
 
 
 class QMTClient:
@@ -62,6 +72,30 @@ class QMTClient:
         data = self._request("POST", "/api/v1/market/quotes", json={"symbols": symbols})["data"]
         return [Quote.model_validate(item) for item in data]
 
+    def get_asset(self) -> AccountAsset:
+        data = self._request("GET", "/api/v1/account/asset")["data"]
+        return AccountAsset.model_validate(data)
+
+    def get_positions(self) -> list[Position]:
+        data = self._request("GET", "/api/v1/account/positions")["data"]
+        return [Position.model_validate(item) for item in data]
+
+    def get_orders(self, *, cancelable_only: bool = False) -> list[OrderRecord]:
+        data = self._request(
+            "GET",
+            "/api/v1/account/orders",
+            params={"cancelable_only": cancelable_only},
+        )["data"]
+        return [OrderRecord.model_validate(item) for item in data]
+
+    def get_order(self, order_id: str) -> OrderRecord:
+        data = self._request("GET", f"/api/v1/orders/{order_id}")["data"]
+        return OrderRecord.model_validate(data)
+
+    def get_trades(self) -> list[TradeRecord]:
+        data = self._request("GET", "/api/v1/account/trades")["data"]
+        return [TradeRecord.model_validate(item) for item in data]
+
     def preview_order(self, order: OrderRequest) -> OrderPreview:
         data = self._request(
             "POST",
@@ -73,6 +107,14 @@ class QMTClient:
     def place_order(self, order: OrderRequest) -> OrderResult:
         data = self._request("POST", "/api/v1/orders", json=order.model_dump(mode="json"))["data"]
         return OrderResult.model_validate(data)
+
+    def cancel_order(self, order_id: str, *, live: bool = False) -> CancelResult:
+        data = self._request(
+            "POST",
+            f"/api/v1/orders/{order_id}/cancel",
+            json={"live": live},
+        )["data"]
+        return CancelResult.model_validate(data)
 
     def close(self) -> None:
         self._client.close()
