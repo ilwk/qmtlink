@@ -45,13 +45,13 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
 def test_settings_are_loaded_from_flat_config(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
-        '''api_key = "secret"
+        """api_key = "secret"
 host = "0.0.0.0"
 port = 9000
 qmt_path = 'C:\\miniQMT\\userdata_mini'
 account_id = "123456"
 allow_live_orders = true
-''',
+""",
         encoding="utf-8",
     )
     for name in (

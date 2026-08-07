@@ -97,8 +97,7 @@ def bridge_run(
             action = "已生成" if created else "请修改"
             raise QMTLinkError(
                 "QMT_CONFIG_REQUIRED",
-                f"配置文件{action}：{config_path}；请填写 qmt_path 和 "
-                "account_id 后重新运行",
+                f"配置文件{action}：{config_path}；请填写 qmt_path 和 account_id 后重新运行",
             )
 
         from qmtlink.server.runner import run_server

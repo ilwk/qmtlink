@@ -97,14 +97,8 @@ class ClientSettings:
         derived_url = f"http://{bridge_host}:{int(data.get('port', 8000))}"
         return cls(
             base_url=os.getenv("QMTLINK_URL", str(data.get("url", derived_url))),
-            api_key=(
-                os.getenv("QMTLINK_API_KEY")
-                or data.get("api_key")
-                or None
-            ),
-            timeout=float(
-                os.getenv("QMTLINK_TIMEOUT", str(data.get("timeout", defaults.timeout)))
-            ),
+            api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
+            timeout=float(os.getenv("QMTLINK_TIMEOUT", str(data.get("timeout", defaults.timeout)))),
         )
 
 
@@ -126,38 +120,24 @@ class ServerSettings:
     def from_env(cls, config_path: str | Path | None = None) -> ServerSettings:
         defaults = cls()
         _, data = load_config(config_path)
-        configured_live_orders = bool(
-            data.get("allow_live_orders", defaults.allow_live_orders)
-        )
+        configured_live_orders = bool(data.get("allow_live_orders", defaults.allow_live_orders))
         return cls(
             host=os.getenv("QMTLINK_HOST", str(data.get("host", defaults.host))),
             port=int(os.getenv("QMTLINK_PORT", str(data.get("port", defaults.port)))),
             mode=os.getenv("QMTLINK_MODE", str(data.get("mode", defaults.mode))),
-            api_key=(
-                os.getenv("QMTLINK_API_KEY")
-                or data.get("api_key")
-                or None
-            ),
-            allow_live_orders=_env_bool(
-                "QMTLINK_ALLOW_LIVE_ORDERS", configured_live_orders
-            ),
+            api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
+            allow_live_orders=_env_bool("QMTLINK_ALLOW_LIVE_ORDERS", configured_live_orders),
             qmt_path=os.getenv("QMTLINK_QMT_PATH") or data.get("qmt_path") or None,
-            account_id=(
-                os.getenv("QMTLINK_ACCOUNT_ID") or data.get("account_id") or None
-            ),
+            account_id=(os.getenv("QMTLINK_ACCOUNT_ID") or data.get("account_id") or None),
             account_type=os.getenv(
                 "QMTLINK_ACCOUNT_TYPE", str(data.get("account_type", defaults.account_type))
             ).upper(),
-            session_id=_optional_int(
-                os.getenv("QMTLINK_SESSION_ID", data.get("session_id"))
-            ),
+            session_id=_optional_int(os.getenv("QMTLINK_SESSION_ID", data.get("session_id"))),
             strategy_name=os.getenv(
                 "QMTLINK_STRATEGY_NAME",
                 str(data.get("strategy_name", defaults.strategy_name)),
             ),
             idempotency_db=(
-                os.getenv("QMTLINK_IDEMPOTENCY_DB")
-                or data.get("idempotency_db")
-                or None
+                os.getenv("QMTLINK_IDEMPOTENCY_DB") or data.get("idempotency_db") or None
             ),
         )
