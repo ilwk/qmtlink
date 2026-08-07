@@ -1,6 +1,6 @@
 [project]
 name = "qmtlink"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "An unofficial CLI, Python SDK, and HTTP bridge for miniQMT/xtquant"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -57,4 +57,4 @@ select = ["E", "F", "I", "UP", "B"]
 testpaths = ["tests"]
 
 [tool.uv.build-backend]
-source-include = ["ROADMAP.md", "docs/**", "qmtlink.env.example", "tests/**"]
+source-include = ["ROADMAP.md", "docs/**", "qmtlink.toml.example", "tests/**"]

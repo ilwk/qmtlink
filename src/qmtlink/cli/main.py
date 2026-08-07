@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 import platform
 import sys
 from typing import Annotated
@@ -9,7 +8,12 @@ from typing import Annotated
 import typer
 
 from qmtlink.client import QMTClient
-from qmtlink.config import ClientSettings, ServerSettings
+from qmtlink.config import (
+    ClientSettings,
+    ServerSettings,
+    create_default_config,
+    resolve_config_path,
+)
 from qmtlink.errors import QMTLinkError
 from qmtlink.models import OrderRequest, OrderSide, OrderType
 
@@ -41,22 +45,30 @@ def _handle_error(exc: Exception) -> None:
 
 @bridge_app.command("doctor")
 def bridge_doctor(pretty: bool = typer.Option(False, "--pretty")) -> None:
-    xtquant_available = importlib.util.find_spec("xtquant") is not None
-    settings = ServerSettings.from_env()
-    qmt_configured = bool(settings.qmt_path and settings.account_id)
-    emit(
-        {
-            "platform": platform.system().lower(),
-            "python": platform.python_version(),
-            "xtquant_importable": xtquant_available,
-            "api_key_configured": bool(os.getenv("QMTLINK_API_KEY")),
-            "qmt_path_configured": bool(settings.qmt_path),
-            "account_configured": bool(settings.account_id),
-            "ready_for_mock": True,
-            "ready_for_real": sys.platform == "win32" and xtquant_available and qmt_configured,
-        },
-        pretty=pretty,
-    )
+    try:
+        config_path = resolve_config_path()
+        xtquant_available = importlib.util.find_spec("xtquant") is not None
+        settings = ServerSettings.from_env()
+        qmt_configured = bool(settings.qmt_path and settings.account_id)
+        emit(
+            {
+                "config_path": str(config_path),
+                "config_exists": config_path.is_file(),
+                "platform": platform.system().lower(),
+                "python": platform.python_version(),
+                "xtquant_importable": xtquant_available,
+                "api_key_configured": bool(settings.api_key),
+                "qmt_path_configured": bool(settings.qmt_path),
+                "account_configured": bool(settings.account_id),
+                "ready_for_mock": True,
+                "ready_for_real": (
+                    sys.platform == "win32" and xtquant_available and qmt_configured
+                ),
+            },
+            pretty=pretty,
+        )
+    except Exception as exc:
+        _handle_error(exc)
 
 
 @bridge_app.command("run")
@@ -65,21 +77,30 @@ def bridge_run(
     host: str | None = typer.Option(None, "--host"),
     port: int | None = typer.Option(None, "--port", min=1, max=65535),
 ) -> None:
-    base = ServerSettings.from_env()
-    settings = ServerSettings(
-        host=host or base.host,
-        port=port or base.port,
-        mode="mock" if mock else base.mode,
-        api_key=base.api_key,
-        allow_live_orders=base.allow_live_orders,
-        qmt_path=base.qmt_path,
-        account_id=base.account_id,
-        account_type=base.account_type,
-        session_id=base.session_id,
-        strategy_name=base.strategy_name,
-        idempotency_db=base.idempotency_db,
-    )
     try:
+        config_path, created = create_default_config()
+        base = ServerSettings.from_env()
+        settings = ServerSettings(
+            host=host or base.host,
+            port=port or base.port,
+            mode="mock" if mock else base.mode,
+            api_key=base.api_key,
+            allow_live_orders=base.allow_live_orders,
+            qmt_path=base.qmt_path,
+            account_id=base.account_id,
+            account_type=base.account_type,
+            session_id=base.session_id,
+            strategy_name=base.strategy_name,
+            idempotency_db=base.idempotency_db,
+        )
+        if settings.mode == "real" and not (settings.qmt_path and settings.account_id):
+            action = "已生成" if created else "请修改"
+            raise QMTLinkError(
+                "QMT_CONFIG_REQUIRED",
+                f"配置文件{action}：{config_path}；请填写 qmt_path 和 "
+                "account_id 后重新运行",
+            )
+
         from qmtlink.server.runner import run_server
 
         run_server(settings)

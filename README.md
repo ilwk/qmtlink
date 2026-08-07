@@ -51,29 +51,32 @@ qmt account positions
 qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
 ```
 
-所有命令默认输出 JSON。`qmtlink` 也可以作为 `qmt` 的备用命令。
+第一次运行时会自动生成配置文件和随机 API 密钥。所有命令默认输出 JSON。
+`qmtlink` 也可以作为 `qmt` 的备用命令。
 
 ## 连接 Windows miniQMT
 
-先在 PowerShell 中配置运行参数：
-
-```powershell
-$env:QMTLINK_API_KEY = "请替换为随机密钥"
-$env:QMTLINK_QMT_PATH = "C:\miniQMT安装目录\userdata_mini"
-$env:QMTLINK_ACCOUNT_ID = "请替换为资金账号"
-```
-
-检查环境：
-
-```powershell
-qmt bridge doctor
-```
-
-启动中转服务：
+直接运行：
 
 ```powershell
 qmt bridge run
 ```
+
+QmtLink 第一次运行会自动生成配置文件，并在输出中显示文件位置。打开文件，只需填写：
+
+```toml
+qmt_path = 'C:\miniQMT安装目录\userdata_mini'
+account_id = "你的资金账号"
+```
+
+保存后再次运行：
+
+```powershell
+qmt bridge run
+```
+
+不需要自己生成 API 密钥，也不需要设置环境变量。可使用 `qmt bridge doctor` 检查当前配置和
+运行环境。
 
 QmtLink 会启动唯一的 XtQuantTrader 运行实例，连接 miniQMT 并订阅账户。真实中转服务建议
 使用 Python 3.11～3.13，并先在模拟盘或券商测试环境中验证。
@@ -83,44 +86,45 @@ QmtLink 会启动唯一的 XtQuantTrader 运行实例，连接 miniQMT 并订阅
 ```python
 from qmtlink import QMTClient
 
-with QMTClient(
-    "http://127.0.0.1:8000",
-    api_key="请替换为与中转服务相同的密钥",
-) as client:
+with QMTClient() as client:
     print(client.health())
     print(client.get_quotes(["000001.SZ"]))
     print(client.get_positions())
 ```
 
+量化项目与 bridge 在同一台机器时，SDK 会自动读取同一份配置。分开部署时，在量化项目机器
+的配置文件中设置 `url`，并使用与 bridge 相同的 `api_key`。
+
 ## 交易安全
 
 - 真实下单和撤单默认关闭。
-- 服务端必须设置 `QMTLINK_ALLOW_LIVE_ORDERS=true` 才允许提交。
+- 配置文件必须增加 `allow_live_orders = true` 才允许提交。
 - 命令行还必须显式提供 `--live`。
 - 每笔订单必须携带唯一的 `client_order_id`。
 - `client_order_id` 会写入 SQLite，重启后仍会阻止重复提交。
 - 下单超时后必须先查询订单状态，不能直接重试。
-- API 密钥只应通过环境变量或本地配置提供，不要写入命令参数或 Git 仓库。
+- API 密钥由 QmtLink 自动生成并保存在本地配置中，不要提交到 Git 仓库。
 
 ## 配置项
 
-| 变量 | 默认值 | 用途 |
-|---|---|---|
-| `QMTLINK_URL` | `http://127.0.0.1:8000` | 命令行和 SDK 访问地址 |
-| `QMTLINK_API_KEY` | 空 | 接口访问密钥 |
-| `QMTLINK_HOST` | `127.0.0.1` | 中转服务监听地址 |
-| `QMTLINK_PORT` | `8000` | 中转服务监听端口 |
-| `QMTLINK_MODE` | `real` | `real` 或 `mock` |
-| `QMTLINK_ALLOW_LIVE_ORDERS` | `false` | 是否允许真实下单和撤单 |
-| `QMTLINK_QMT_PATH` | 空 | Windows `userdata_mini` 完整路径 |
-| `QMTLINK_ACCOUNT_ID` | 空 | miniQMT 资金账号 |
-| `QMTLINK_ACCOUNT_TYPE` | `STOCK` | xtquant 账号类型 |
-| `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号 |
-| `QMTLINK_STRATEGY_NAME` | `qmtlink` | 委托策略名称 |
-| `QMTLINK_IDEMPOTENCY_DB` | 用户数据目录 | 下单幂等数据库位置 |
+默认配置文件位置：
 
-配置示例见 [qmtlink.env.example](qmtlink.env.example)。不要把真实密钥或资金账号提交到
-Git 仓库。
+- Windows：`%APPDATA%\qmtlink\config.toml`
+- Linux/macOS：`~/.config/qmtlink/config.toml`
+
+常用配置：
+
+| 配置 | 默认值 | 用途 |
+|---|---|---|
+| `api_key` | 自动生成 | CLI、SDK 和 bridge 共用的访问密钥 |
+| `qmt_path` | 空 | Windows `userdata_mini` 完整路径 |
+| `account_id` | 空 | miniQMT 资金账号 |
+
+其他参数都有内置默认值。只有需要远程访问或开启实盘下单时，才需要手动增加 `url`、
+`host`、`port` 或 `allow_live_orders`。
+
+配置示例见 [qmtlink.toml.example](qmtlink.toml.example)。如需把配置放到其他位置，可设置
+`QMTLINK_CONFIG` 指向该文件。
 
 ## 参与开发
 
