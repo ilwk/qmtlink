@@ -12,17 +12,20 @@ QmtLink 是一个非官方的 miniQMT/xtquant 跨平台中转项目，提供：
 
 ## 安装
 
-客户端和 CLI：
+安装到 Python 项目：
 
 ```bash
 uv add qmtlink
 ```
 
-Windows Bridge：
+全局安装 `qmt` 命令：
 
 ```bash
-uv add "qmtlink[server]"
+uv tool install qmtlink
 ```
+
+不需要填写 `[server]` 或手动追加 xtquant；Windows 会自动安装 xtquant，Linux/macOS
+则只安装跨平台组件。
 
 ## 快速体验
 
@@ -107,7 +110,7 @@ Git 仓库。
 ## 开发
 
 ```bash
-uv sync --extra server
+uv sync --dev
 uv run pytest
 uv run ruff check .
 uv build --no-sources

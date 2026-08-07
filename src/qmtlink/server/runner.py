@@ -4,10 +4,7 @@ from qmtlink.config import ServerSettings
 
 
 def run_server(settings: ServerSettings) -> None:
-    try:
-        import uvicorn
-    except ImportError as exc:  # pragma: no cover - depends on installation extras
-        raise RuntimeError('server dependencies are missing; install "qmtlink[server]"') from exc
+    import uvicorn
 
     from .app import create_app
 
