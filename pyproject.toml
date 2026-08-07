@@ -1,0 +1,58 @@
+[project]
+name = "qmtlink"
+version = "0.1.0a1"
+description = "An unofficial CLI, Python SDK, and HTTP bridge for miniQMT/xtquant"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "QmtLink Contributors" }]
+keywords = ["miniqmt", "qmt", "xtquant", "trading", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
+    "typer>=0.27.1",
+]
+
+[project.scripts]
+qmt = "qmtlink.cli.main:main"
+qmtlink = "qmtlink.cli.main:main"
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.52.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/ilwk/qmtlink"
+Repository = "https://github.com/ilwk/qmtlink"
+Issues = "https://github.com/ilwk/qmtlink/issues"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
