@@ -80,10 +80,19 @@ def bridge_run(
     try:
         config_path, created = create_default_config()
         base = ServerSettings.from_env()
+        qmt_path_configured = bool(base.qmt_path)
+        account_configured = bool(base.account_id)
+        forced_mock = mock or base.mode.strip().lower() == "mock"
+        if not forced_mock and qmt_path_configured != account_configured:
+            raise QMTLinkError(
+                "QMT_CONFIG_REQUIRED",
+                f"配置不完整：{config_path}；qmt_path 和 account_id 必须同时填写",
+            )
+        mode = "mock" if forced_mock or not qmt_path_configured else base.mode
         settings = ServerSettings(
             host=host or base.host,
             port=port or base.port,
-            mode="mock" if mock else base.mode,
+            mode=mode,
             api_key=base.api_key,
             allow_live_orders=base.allow_live_orders,
             qmt_path=base.qmt_path,
@@ -93,12 +102,15 @@ def bridge_run(
             strategy_name=base.strategy_name,
             idempotency_db=base.idempotency_db,
         )
-        if settings.mode == "real" and not (settings.qmt_path and settings.account_id):
-            action = "已生成" if created else "请修改"
-            raise QMTLinkError(
-                "QMT_CONFIG_REQUIRED",
-                f"配置文件{action}：{config_path}；请填写 qmt_path 和 account_id 后重新运行",
-            )
+        emit(
+            {
+                "mode": settings.mode,
+                "host": settings.host,
+                "port": settings.port,
+                "config_path": str(config_path),
+                "config_created": created,
+            }
+        )
 
         from qmtlink.server.runner import run_server
 

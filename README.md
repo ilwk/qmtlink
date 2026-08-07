@@ -31,10 +31,10 @@ uv add qmtlink
 
 ## 快速体验
 
-启动不连接真实 miniQMT 的模拟中转服务：
+直接启动。未配置 miniQMT 账号时会自动使用 Mock 模式：
 
 ```bash
-qmt bridge run --mock
+qmt bridge run
 ```
 
 在另一个终端执行：
@@ -48,8 +48,9 @@ qmt account positions
 qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
 ```
 
-第一次运行时会自动生成配置文件和随机 API 密钥。所有命令默认输出 JSON。
-`qmtlink` 也可以作为 `qmt` 的备用命令。
+第一次运行时会自动生成配置文件和随机 API 密钥。也可以使用
+`qmt bridge run --mock` 强制进入 Mock 模式。所有命令默认输出 JSON，`qmtlink` 也可以
+作为 `qmt` 的备用命令。
 
 ## 连接 Windows miniQMT
 
@@ -59,7 +60,8 @@ qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
 qmt bridge run
 ```
 
-QmtLink 第一次运行会自动生成配置文件，并在输出中显示文件位置。打开文件，只需填写：
+QmtLink 第一次运行会自动生成配置文件，以 Mock 模式启动，并在输出中显示文件位置。按
+`Ctrl+C` 停止服务，打开配置文件，只需填写：
 
 ```toml
 qmt_path = 'C:\miniQMT安装目录\userdata_mini'
@@ -118,7 +120,8 @@ qmt_path = ""
 account_id = ""
 ```
 
-普通股票账户只需填写 `qmt_path` 和 `account_id`。自动生成的 `api_key` 应保留原值。
+普通股票账户只需填写 `qmt_path` 和 `account_id`。两项都为空时自动使用 Mock 模式，两项
+都填写后自动使用真实模式；只填写一项会报告配置错误。自动生成的 `api_key` 应保留原值。
 
 ### 完整示例
 
@@ -160,7 +163,7 @@ timeout = 30.0
 | `strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
 | `host` | `QMTLINK_HOST` | `127.0.0.1` | bridge 监听地址；仅本机使用时不要改为公网地址 |
 | `port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
-| `mode` | `QMTLINK_MODE` | `real` | `real` 连接真实 miniQMT，`mock` 使用内置模拟数据 |
+| `mode` | `QMTLINK_MODE` | 自动选择 | 未配置账号时使用 Mock，两项账号配置完整时使用真实模式；设为 `mock` 可强制模拟 |
 | `allow_live_orders` | `QMTLINK_ALLOW_LIVE_ORDERS` | `false` | 是否允许真实下单和撤单；开启后 CLI 仍需显式传入 `--live` |
 | `url` | `QMTLINK_URL` | 根据 `host` 和 `port` 生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
 | `timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |

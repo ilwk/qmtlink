@@ -21,3 +21,4 @@ def emit(data: Any, *, ok: bool = True, pretty: bool = False) -> None:
     payload = {"ok": ok, "data": _jsonable(data)} if ok else {"ok": False, "error": data}
     json.dump(payload, sys.stdout, ensure_ascii=False, indent=2 if pretty else None)
     sys.stdout.write("\n")
+    sys.stdout.flush()
