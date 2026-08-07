@@ -29,9 +29,6 @@ uv tool install qmtlink
 uv add qmtlink
 ```
 
-不需要填写 `[server]`，也不需要手动追加 xtquant。Windows 会自动安装 xtquant，
-Linux 和 macOS 只安装跨平台组件。
-
 ## 快速体验
 
 启动不连接真实 miniQMT 的模拟中转服务：
