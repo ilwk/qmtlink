@@ -62,6 +62,13 @@ def create_app(
                 detail={"code": "INVALID_API_KEY", "message": "invalid or missing API key"},
             )
 
+    def require_trading_allowed() -> None:
+        if settings.mode.strip().lower() == "real" and not settings.allow_trading:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "TRADING_DISABLED", "message": "trading is disabled"},
+            )
+
     @app.exception_handler(HTTPException)
     async def handle_http_error(_request: Request, exc: HTTPException) -> JSONResponse:
         detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
@@ -154,11 +161,7 @@ def create_app(
                 status_code=400,
                 detail={"code": "LIVE_FLAG_REQUIRED", "message": "set live=true to submit"},
             )
-        if not settings.allow_live_orders:
-            raise HTTPException(
-                status_code=403,
-                detail={"code": "LIVE_ORDERS_DISABLED", "message": "live orders are disabled"},
-            )
+        require_trading_allowed()
         return _success(backend.place_order(payload).model_dump(mode="json"), started)
 
     @app.get("/api/v1/orders/{order_id}")
@@ -189,11 +192,7 @@ def create_app(
                 status_code=400,
                 detail={"code": "LIVE_FLAG_REQUIRED", "message": "set live=true to cancel"},
             )
-        if not settings.allow_live_orders:
-            raise HTTPException(
-                status_code=403,
-                detail={"code": "LIVE_ORDERS_DISABLED", "message": "live orders are disabled"},
-            )
+        require_trading_allowed()
         return _success(backend.cancel_order(order_id).model_dump(mode="json"), started)
 
     return app

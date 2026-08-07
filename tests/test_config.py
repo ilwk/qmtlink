@@ -1,6 +1,9 @@
 import tomllib
 
+import pytest
+
 from qmtlink.config import ClientSettings, ServerSettings, create_default_config
+from qmtlink.errors import QMTLinkError
 
 
 def test_default_client_settings(monkeypatch, tmp_path) -> None:
@@ -17,7 +20,6 @@ def test_default_server_settings(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("QMTLINK_CONFIG", str(tmp_path / "missing.toml"))
     monkeypatch.delenv("QMTLINK_HOST", raising=False)
     monkeypatch.delenv("QMTLINK_PORT", raising=False)
-    monkeypatch.delenv("QMTLINK_MODE", raising=False)
     settings = ServerSettings.from_env()
     assert settings.host == "127.0.0.1"
     assert settings.port == 8000
@@ -50,7 +52,7 @@ host = "0.0.0.0"
 port = 9000
 qmt_path = 'C:\\miniQMT\\userdata_mini'
 account_id = "123456"
-allow_live_orders = true
+allow_trading = true
 """,
         encoding="utf-8",
     )
@@ -61,7 +63,7 @@ allow_live_orders = true
         "QMTLINK_PORT",
         "QMTLINK_QMT_PATH",
         "QMTLINK_ACCOUNT_ID",
-        "QMTLINK_ALLOW_LIVE_ORDERS",
+        "QMTLINK_ALLOW_TRADING",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -74,4 +76,12 @@ allow_live_orders = true
     assert server.port == 9000
     assert server.qmt_path == r"C:\miniQMT\userdata_mini"
     assert server.account_id == "123456"
-    assert server.allow_live_orders is True
+    assert server.allow_trading is True
+
+
+def test_allow_trading_requires_a_toml_boolean(tmp_path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('allow_trading = "false"\n', encoding="utf-8")
+
+    with pytest.raises(QMTLinkError, match="allow_trading must be true or false"):
+        ServerSettings.from_env(config_path)

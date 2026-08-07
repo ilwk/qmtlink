@@ -82,19 +82,18 @@ def bridge_run(
         base = ServerSettings.from_env()
         qmt_path_configured = bool(base.qmt_path)
         account_configured = bool(base.account_id)
-        forced_mock = mock or base.mode.strip().lower() == "mock"
-        if not forced_mock and qmt_path_configured != account_configured:
+        if not mock and qmt_path_configured != account_configured:
             raise QMTLinkError(
                 "QMT_CONFIG_REQUIRED",
                 f"配置不完整：{config_path}；qmt_path 和 account_id 必须同时填写",
             )
-        mode = "mock" if forced_mock or not qmt_path_configured else base.mode
+        mode = "mock" if mock or not qmt_path_configured else "real"
         settings = ServerSettings(
             host=host or base.host,
             port=port or base.port,
             mode=mode,
             api_key=base.api_key,
-            allow_live_orders=base.allow_live_orders,
+            allow_trading=base.allow_trading,
             qmt_path=base.qmt_path,
             account_id=base.account_id,
             account_type=base.account_type,

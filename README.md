@@ -97,7 +97,7 @@ with QMTClient() as client:
 ## 交易安全
 
 - 真实下单和撤单默认关闭。
-- 配置文件必须增加 `allow_live_orders = true` 才允许提交。
+- 配置文件必须增加 `allow_trading = true` 才允许提交。
 - 命令行还必须显式提供 `--live`。
 - 每笔订单必须携带唯一的 `client_order_id`。
 - `client_order_id` 会写入 SQLite，重启后仍会阻止重复提交。
@@ -140,8 +140,7 @@ strategy_name = "qmtlink"
 # bridge 服务配置。
 host = "127.0.0.1"
 port = 8000
-mode = "real"
-allow_live_orders = false
+allow_trading = false
 
 # CLI 和 Python SDK 的 HTTP 客户端配置。
 url = "http://127.0.0.1:8000"
@@ -163,8 +162,7 @@ timeout = 30.0
 | `strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
 | `host` | `QMTLINK_HOST` | `127.0.0.1` | bridge 监听地址；仅本机使用时不要改为公网地址 |
 | `port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
-| `mode` | `QMTLINK_MODE` | 自动选择 | 未配置账号时使用 Mock，两项账号配置完整时使用真实模式；设为 `mock` 可强制模拟 |
-| `allow_live_orders` | `QMTLINK_ALLOW_LIVE_ORDERS` | `false` | 是否允许真实下单和撤单；开启后 CLI 仍需显式传入 `--live` |
+| `allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
 | `url` | `QMTLINK_URL` | 根据 `host` 和 `port` 生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
 | `timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
 | `session_id` | `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号；手动设置时应避免与其他实例重复 |

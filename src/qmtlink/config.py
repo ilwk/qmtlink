@@ -81,6 +81,17 @@ def _optional_int(value: object) -> int | None:
     return None if value is None else int(value)
 
 
+def _config_bool(data: dict[str, Any], name: str, default: bool) -> bool:
+    value = data.get(name, default)
+    if not isinstance(value, bool):
+        raise QMTLinkError(
+            "INVALID_CONFIG",
+            f"config field {name} must be true or false",
+            status_code=400,
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class ClientSettings:
     base_url: str = "http://127.0.0.1:8000"
@@ -108,7 +119,7 @@ class ServerSettings:
     port: int = 8000
     mode: str = "real"
     api_key: str | None = None
-    allow_live_orders: bool = False
+    allow_trading: bool = False
     qmt_path: str | None = None
     account_id: str | None = None
     account_type: str = "STOCK"
@@ -120,13 +131,13 @@ class ServerSettings:
     def from_env(cls, config_path: str | Path | None = None) -> ServerSettings:
         defaults = cls()
         _, data = load_config(config_path)
-        configured_live_orders = bool(data.get("allow_live_orders", defaults.allow_live_orders))
+        configured_allow_trading = _config_bool(data, "allow_trading", defaults.allow_trading)
         return cls(
             host=os.getenv("QMTLINK_HOST", str(data.get("host", defaults.host))),
             port=int(os.getenv("QMTLINK_PORT", str(data.get("port", defaults.port)))),
-            mode=os.getenv("QMTLINK_MODE", str(data.get("mode", defaults.mode))),
+            mode=defaults.mode,
             api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
-            allow_live_orders=_env_bool("QMTLINK_ALLOW_LIVE_ORDERS", configured_live_orders),
+            allow_trading=_env_bool("QMTLINK_ALLOW_TRADING", configured_allow_trading),
             qmt_path=os.getenv("QMTLINK_QMT_PATH") or data.get("qmt_path") or None,
             account_id=(os.getenv("QMTLINK_ACCOUNT_ID") or data.get("account_id") or None),
             account_type=os.getenv(
