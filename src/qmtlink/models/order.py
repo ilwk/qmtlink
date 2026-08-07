@@ -13,7 +13,6 @@ class OrderSide(StrEnum):
 
 class OrderType(StrEnum):
     LIMIT = "limit"
-    MARKET = "market"
 
 
 class OrderRequest(BaseModel):
@@ -30,8 +29,8 @@ class OrderRequest(BaseModel):
         self.symbol = self.symbol.strip().upper()
         if not self.symbol:
             raise ValueError("symbol is required")
-        if self.order_type == OrderType.LIMIT and self.price is None:
-            raise ValueError("price is required for a limit order")
+        if self.price is None:
+            raise ValueError("price is required")
         return self
 
 

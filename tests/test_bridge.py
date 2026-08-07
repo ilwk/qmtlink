@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from qmtlink.bridge.mock import MockBridge
 from qmtlink.models import OrderRequest, OrderSide
 
@@ -21,3 +24,13 @@ def test_order_preview_calculates_amount() -> None:
     preview = bridge.preview_order(order)
     assert preview.estimated_amount == 1050
     assert preview.submitted is False
+
+
+def test_market_order_is_not_accepted_as_latest_price() -> None:
+    with pytest.raises(ValidationError):
+        OrderRequest(
+            symbol="000001.SZ",
+            side=OrderSide.BUY,
+            quantity=100,
+            order_type="market",
+        )

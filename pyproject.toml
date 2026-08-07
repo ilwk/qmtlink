@@ -3,7 +3,7 @@ name = "qmtlink"
 version = "0.1.0a5"
 description = "An unofficial CLI, Python SDK, and HTTP bridge for miniQMT/xtquant"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "QmtLink Contributors" }]
@@ -15,15 +15,20 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
     "typer>=0.27.1",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.141.1",
     "uvicorn[standard]>=0.52.1",
-    "xtquant>=250807.1.2; sys_platform == 'win32'",
+    "xtquant==250807.1.2; sys_platform == 'win32' and python_version < '3.14'",
 ]
 
 [project.scripts]

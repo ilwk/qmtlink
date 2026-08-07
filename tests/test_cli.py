@@ -15,6 +15,7 @@ def test_bridge_doctor_outputs_json(monkeypatch, tmp_path) -> None:
     assert '"ok": true' in result.stdout
     assert f'"config_path": "{config_path}"' in result.stdout
     assert '"config_exists": false' in result.stdout
+    assert '"server_dependencies_installed": true' in result.stdout
     assert '"ready_for_mock": true' in result.stdout
 
 

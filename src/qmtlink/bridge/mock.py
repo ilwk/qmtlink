@@ -37,6 +37,7 @@ class MockBridge:
             "real_trading": False,
             "account_queries": True,
             "cancel_orders": True,
+            "supported_order_types": ["limit"],
         }
 
     def get_quotes(self, symbols: list[str]) -> list[Quote]:

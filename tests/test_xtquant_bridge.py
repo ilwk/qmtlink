@@ -180,7 +180,11 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     assert bridge.health()["qmt_connected"] is True
     assert bridge.get_asset().total_asset == 1_000_000
     assert bridge.get_positions()[0].available_quantity == 800
-    assert bridge.get_orders()[0].status == "accepted"
+    queried_order = bridge.get_orders()[0]
+    assert queried_order.status == "accepted"
+    assert queried_order.broker_order_type == 23
+    assert queried_order.broker_price_type == 11
+    assert queried_order.broker_order_status == 50
     assert bridge.get_order("123").client_order_id == "client-001"
     assert bridge.get_trades()[0].commission == 0.5
     assert bridge.get_quotes(["000001.SZ"])[0].last_price == 10.5
@@ -204,6 +208,31 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
 
     bridge.close()
     assert FakeTrader.instances[-1].stopped is True
+
+
+def test_xtquant_bridge_does_not_guess_unknown_broker_values(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+            idempotency_db=":memory:",
+        )
+    )
+    raw_order = FakeTrader._order(bridge._account, 456)
+    raw_order.order_type = 999
+    raw_order.price_type = 998
+    raw_order.order_status = 997
+
+    order = bridge._order(raw_order)
+
+    assert order.side is None
+    assert order.order_type is None
+    assert order.status == "unknown"
+    assert order.broker_order_type == 999
+    assert order.broker_price_type == 998
+    assert order.broker_order_status == 997
+    bridge.close()
 
 
 def test_xtquant_bridge_requires_real_mode_configuration() -> None:

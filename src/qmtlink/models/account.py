@@ -41,6 +41,9 @@ class OrderRecord(BaseModel):
     status: str
     status_message: str = ""
     order_time: int | None = None
+    broker_order_type: int | None = None
+    broker_price_type: int | None = None
+    broker_order_status: int | None = None
 
 
 class TradeRecord(BaseModel):
@@ -56,3 +59,4 @@ class TradeRecord(BaseModel):
     amount: float
     commission: float = 0.0
     trade_time: int | None = None
+    broker_order_type: int | None = None

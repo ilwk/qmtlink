@@ -12,15 +12,25 @@ QmtLink 是一个面向 A 股 miniQMT/xtquant 的非官方中转工具，让 Win
 - 支持行情、资产、持仓、委托、成交、下单、查单和撤单
 - 使用 SQLite 持久化下单幂等记录，降低重复下单风险
 
+QmtLink 对外使用 `buy`、`sell`、`limit` 等可读字段，在 bridge 内部统一转换为 xtquant
+常量。查询结果同时保留 `broker_*` 原始值和标准化字段，方便排查券商差异，但不把 xtquant
+数字常量扩散到 CLI 和量化策略中。
+
 > 当前仍是开发预览版。模拟模式、HTTP 接口、命令行和 SDK 已可用；真实交易适配尚未在
 > 你的券商 miniQMT 环境验证，请先使用模拟模式，切勿直接用于实盘。
 
 ## 安装
 
-全局安装 `qmt` 命令：
+在普通电脑上安装 `qmt` 命令，只包含 Client：
 
 ```bash
 uv tool install qmtlink
+```
+
+在 Windows miniQMT 交易机上安装 Bridge：
+
+```powershell
+uv tool install "qmtlink[server]" --python 3.13
 ```
 
 安装到自己的 Python 量化项目：
@@ -31,7 +41,7 @@ uv add qmtlink
 
 ## 快速体验
 
-直接启动。未配置 miniQMT 账号时会自动使用 Mock 模式：
+安装 Bridge 后直接启动。未配置 miniQMT 账号时会自动使用 Mock 模式：
 
 ```bash
 qmt bridge run
@@ -78,7 +88,8 @@ qmt bridge run
 运行环境。
 
 QmtLink 会启动唯一的 XtQuantTrader 运行实例，连接 miniQMT 并订阅账户。真实中转服务建议
-使用 Python 3.11～3.13，并先在模拟盘或券商测试环境中验证。
+使用 Python 3.13，并先在模拟盘或券商测试环境中验证。Client 不受 xtquant 的 Python 版本
+上限影响。
 
 ## Python SDK
 
@@ -96,6 +107,7 @@ with QMTClient() as client:
 
 ## 交易安全
 
+- 当前只开放限价单；不同交易所的市价类型规则不同，在完成真实环境验证前不做模糊映射。
 - 真实下单和撤单默认关闭。
 - 配置文件必须增加 `allow_trading = true` 才允许提交。
 - 命令行还必须显式提供 `--live`。
@@ -186,7 +198,7 @@ Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Li
 ## 参与开发
 
 ```bash
-uv sync --dev
+uv sync --all-extras --dev
 uv run pytest
 uv run ruff check .
 uv build --no-sources

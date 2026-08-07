@@ -134,6 +134,7 @@ class XtQuantBridge:
             "real_trading": True,
             "account_queries": True,
             "cancel_orders": True,
+            "supported_order_types": [OrderType.LIMIT.value],
         }
 
     @staticmethod
@@ -219,7 +220,7 @@ class XtQuantBridge:
             risk_checks={
                 "qmt_connected": self._connected,
                 "valid_quantity": order.quantity > 0,
-                "valid_price": order.order_type == OrderType.MARKET or order.price is not None,
+                "valid_price": order.price is not None,
             },
         )
 
@@ -234,11 +235,7 @@ class XtQuantBridge:
                 if order.side == OrderSide.BUY
                 else self._xtconstant.STOCK_SELL
             )
-            price_type = (
-                self._xtconstant.FIX_PRICE
-                if order.order_type == OrderType.LIMIT
-                else self._xtconstant.LATEST_PRICE
-            )
+            price_type = self._xtconstant.FIX_PRICE
             try:
                 order_id = self._invoke(
                     "order_stock",
@@ -299,10 +296,10 @@ class XtQuantBridge:
             return OrderSide.SELL
         return None
 
-    def _order_type(self, value: int) -> OrderType:
+    def _order_type(self, value: int) -> OrderType | None:
         if value == self._xtconstant.FIX_PRICE:
             return OrderType.LIMIT
-        return OrderType.MARKET
+        return None
 
     def _order_status(self, value: int) -> str:
         mapping = {
@@ -342,25 +339,32 @@ class XtQuantBridge:
 
     def _order(self, item: Any) -> OrderRecord:
         remark = str(item.order_remark or "")
+        broker_order_type = int(item.order_type)
+        broker_price_type = int(item.price_type)
+        broker_order_status = int(item.order_status)
         return OrderRecord(
             account_id=str(item.account_id),
             order_id=str(item.order_id),
             system_order_id=self._optional_text(item.order_sysid),
             client_order_id=remark or None,
             symbol=str(item.stock_code),
-            side=self._side(int(item.order_type)),
+            side=self._side(broker_order_type),
             quantity=int(item.order_volume),
             price=float(item.price),
-            order_type=self._order_type(int(item.price_type)),
+            order_type=self._order_type(broker_price_type),
             traded_quantity=int(item.traded_volume),
             traded_price=float(item.traded_price),
-            status=self._order_status(int(item.order_status)),
+            status=self._order_status(broker_order_status),
             status_message=str(item.status_msg or ""),
             order_time=int(item.order_time),
+            broker_order_type=broker_order_type,
+            broker_price_type=broker_price_type,
+            broker_order_status=broker_order_status,
         )
 
     def _trade(self, item: Any) -> TradeRecord:
         remark = str(item.order_remark or "")
+        broker_order_type = int(item.order_type)
         return TradeRecord(
             account_id=str(item.account_id),
             trade_id=str(item.traded_id),
@@ -368,12 +372,13 @@ class XtQuantBridge:
             system_order_id=self._optional_text(item.order_sysid),
             client_order_id=remark or None,
             symbol=str(item.stock_code),
-            side=self._side(int(item.order_type)),
+            side=self._side(broker_order_type),
             quantity=int(item.traded_volume),
             price=float(item.traded_price),
             amount=float(item.traded_amount),
             commission=float(getattr(item, "commission", 0.0)),
             trade_time=int(item.traded_time),
+            broker_order_type=broker_order_type,
         )
 
     def close(self) -> None:

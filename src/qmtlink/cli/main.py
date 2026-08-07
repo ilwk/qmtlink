@@ -48,6 +48,10 @@ def bridge_doctor(pretty: bool = typer.Option(False, "--pretty")) -> None:
     try:
         config_path = resolve_config_path()
         xtquant_available = importlib.util.find_spec("xtquant") is not None
+        server_dependencies = all(
+            importlib.util.find_spec(package) is not None for package in ("fastapi", "uvicorn")
+        )
+        python_supported = (3, 11) <= sys.version_info[:2] < (3, 14)
         settings = ServerSettings.from_env()
         qmt_configured = bool(settings.qmt_path and settings.account_id)
         emit(
@@ -56,13 +60,19 @@ def bridge_doctor(pretty: bool = typer.Option(False, "--pretty")) -> None:
                 "config_exists": config_path.is_file(),
                 "platform": platform.system().lower(),
                 "python": platform.python_version(),
+                "python_supported_for_real": python_supported,
+                "server_dependencies_installed": server_dependencies,
                 "xtquant_importable": xtquant_available,
                 "api_key_configured": bool(settings.api_key),
                 "qmt_path_configured": bool(settings.qmt_path),
                 "account_configured": bool(settings.account_id),
-                "ready_for_mock": True,
+                "ready_for_mock": server_dependencies,
                 "ready_for_real": (
-                    sys.platform == "win32" and xtquant_available and qmt_configured
+                    sys.platform == "win32"
+                    and python_supported
+                    and server_dependencies
+                    and xtquant_available
+                    and qmt_configured
                 ),
             },
             pretty=pretty,
