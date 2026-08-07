@@ -109,19 +109,78 @@ with QMTClient() as client:
 - Windows：`%APPDATA%\qmtlink\config.toml`
 - Linux/macOS：`~/.config/qmtlink/config.toml`
 
-常用配置：
+配置文件使用扁平的 TOML 格式，不需要添加 `[bridge]` 或 `[client]`。首次执行
+`qmt bridge run` 时，QmtLink 会生成以下最小配置：
 
-| 配置 | 默认值 | 用途 |
-|---|---|---|
-| `api_key` | 自动生成 | CLI、SDK 和 bridge 共用的访问密钥 |
-| `qmt_path` | 空 | Windows `userdata_mini` 完整路径 |
-| `account_id` | 空 | miniQMT 资金账号 |
+```toml
+api_key = "自动生成的随机密钥"
+qmt_path = ""
+account_id = ""
+```
 
-其他参数都有内置默认值。只有需要远程访问或开启实盘下单时，才需要手动增加 `url`、
-`host`、`port` 或 `allow_live_orders`。
+普通股票账户只需填写 `qmt_path` 和 `account_id`。自动生成的 `api_key` 应保留原值。
 
-配置示例见 [qmtlink.toml.example](qmtlink.toml.example)。如需把配置放到其他位置，可设置
-`QMTLINK_CONFIG` 指向该文件。
+### 完整示例
+
+下面包含所有支持的配置项。`session_id` 和 `idempotency_db` 通常无需设置，因此保持注释即可。
+
+```toml
+# CLI、SDK 和 bridge 共用的访问密钥，请勿泄露。
+api_key = "自动生成的随机密钥"
+
+# miniQMT 配置。
+qmt_path = 'C:\miniQMT安装目录\userdata_mini'
+account_id = "你的资金账号"
+account_type = "STOCK"
+strategy_name = "qmtlink"
+
+# bridge 服务配置。
+host = "127.0.0.1"
+port = 8000
+mode = "real"
+allow_live_orders = false
+
+# CLI 和 Python SDK 的 HTTP 客户端配置。
+url = "http://127.0.0.1:8000"
+timeout = 30.0
+
+# 高级配置：不填写时由 QmtLink 自动处理。
+# session_id = 123456
+# idempotency_db = 'C:\Users\你的用户名\AppData\Local\QmtLink\orders.sqlite3'
+```
+
+### 字段说明
+
+| 配置项 | 环境变量覆盖 | 默认值 | 说明 |
+|---|---|---|---|
+| `api_key` | `QMTLINK_API_KEY` | 首次运行时自动生成 | 访问账户和交易接口的密钥，CLI、SDK 和 bridge 必须保持一致 |
+| `qmt_path` | `QMTLINK_QMT_PATH` | 空 | miniQMT 的 `userdata_mini` 完整路径，真实模式必填 |
+| `account_id` | `QMTLINK_ACCOUNT_ID` | 空 | miniQMT 资金账号，真实模式必填 |
+| `account_type` | `QMTLINK_ACCOUNT_TYPE` | `STOCK` | 账户类型；普通股票为 `STOCK`，融资融券通常为 `CREDIT` |
+| `strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
+| `host` | `QMTLINK_HOST` | `127.0.0.1` | bridge 监听地址；仅本机使用时不要改为公网地址 |
+| `port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
+| `mode` | `QMTLINK_MODE` | `real` | `real` 连接真实 miniQMT，`mock` 使用内置模拟数据 |
+| `allow_live_orders` | `QMTLINK_ALLOW_LIVE_ORDERS` | `false` | 是否允许真实下单和撤单；开启后 CLI 仍需显式传入 `--live` |
+| `url` | `QMTLINK_URL` | 根据 `host` 和 `port` 生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
+| `timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
+| `session_id` | `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号；手动设置时应避免与其他实例重复 |
+| `idempotency_db` | `QMTLINK_IDEMPOTENCY_DB` | 用户数据目录 | 保存下单幂等记录的 SQLite 文件路径 |
+
+Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Linux/macOS 默认位于
+`~/.local/share/qmtlink/orders.sqlite3`。
+
+### 覆盖规则
+
+配置优先级从高到低为：
+
+1. `qmt bridge run` 的 `--mock`、`--host`、`--port` 参数
+2. 对应的 `QMTLINK_*` 环境变量
+3. `config.toml`
+4. 程序内置默认值
+
+最小配置示例见 [qmtlink.toml.example](qmtlink.toml.example)。如需把配置放到其他位置，可设置
+`QMTLINK_CONFIG` 指向目标文件。
 
 ## 参与开发
 
