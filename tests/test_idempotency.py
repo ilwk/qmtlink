@@ -1,6 +1,6 @@
 import pytest
 
-from qmtlink.bridge.idempotency import IdempotencyStore
+from qmtlink.bridge.idempotency import IdempotencyStore, default_idempotency_path
 from qmtlink.errors import QMTLinkError
 from qmtlink.models import OrderRequest, OrderResult
 
@@ -16,6 +16,14 @@ def make_order(**updates) -> OrderRequest:
     }
     values.update(updates)
     return OrderRequest.model_validate(values)
+
+
+def test_default_idempotency_path_matches_config_directory(monkeypatch, tmp_path) -> None:
+    config_home = tmp_path / "config"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+
+    assert default_idempotency_path() == config_home / "qmtlink" / "orders.sqlite3"
 
 
 def test_completed_order_survives_restart(tmp_path) -> None:

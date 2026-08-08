@@ -13,11 +13,8 @@ from qmtlink.models import OrderRequest, OrderResult
 
 
 def default_idempotency_path() -> Path:
-    if local_app_data := os.getenv("LOCALAPPDATA"):
-        return Path(local_app_data) / "QmtLink" / "orders.sqlite3"
-    if xdg_data_home := os.getenv("XDG_DATA_HOME"):
-        return Path(xdg_data_home) / "qmtlink" / "orders.sqlite3"
-    return Path.home() / ".local" / "share" / "qmtlink" / "orders.sqlite3"
+    root = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return root / "qmtlink" / "orders.sqlite3"
 
 
 def order_fingerprint(order: OrderRequest) -> str:

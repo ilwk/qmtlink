@@ -165,8 +165,7 @@ QmtLink 会根据[配置模板](src/qmtlink/config.template.toml)生成配置。
 | `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
 | `client.url` | `QMTLINK_URL` | 根据 server 地址生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
 | `client.timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
-Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Linux/macOS 默认位于
-`~/.local/share/qmtlink/orders.sqlite3`。
+幂等数据库与配置文件放在同一目录：`~/.config/qmtlink/orders.sqlite3`。
 
 ### 覆盖规则
 
