@@ -13,10 +13,7 @@ from qmtlink.errors import QMTLinkError
 
 
 def default_config_path() -> Path:
-    if os.name == "nt":
-        root = Path(os.getenv("APPDATA", Path.home() / "AppData" / "Roaming"))
-    else:
-        root = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config"))
+    root = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config"))
     return root / "qmtlink" / "config.toml"
 
 

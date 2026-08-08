@@ -130,8 +130,7 @@ with QMTClient() as client:
 
 默认配置文件位置：
 
-- Windows：`%APPDATA%\qmtlink\config.toml`
-- Linux/macOS：`~/.config/qmtlink/config.toml`
+- Windows/Linux/macOS：`~/.config/qmtlink/config.toml`
 
 配置文件使用扁平的 TOML 格式，不需要添加 `[bridge]` 或 `[client]`。首次执行
 `qmt bridge run` 时，QmtLink 会生成以下最小配置：

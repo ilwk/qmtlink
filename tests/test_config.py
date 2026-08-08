@@ -2,7 +2,12 @@ import tomllib
 
 import pytest
 
-from qmtlink.config import ClientSettings, ServerSettings, create_default_config
+from qmtlink.config import (
+    ClientSettings,
+    ServerSettings,
+    create_default_config,
+    default_config_path,
+)
 from qmtlink.errors import QMTLinkError
 
 
@@ -24,6 +29,16 @@ def test_default_server_settings(monkeypatch, tmp_path) -> None:
     assert settings.host == "127.0.0.1"
     assert settings.port == 8000
     assert settings.mode == "real"
+
+
+def test_default_config_path_uses_the_same_short_xdg_location_everywhere(
+    monkeypatch, tmp_path
+) -> None:
+    xdg_config_home = tmp_path / "config"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_config_home))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData" / "Roaming"))
+
+    assert default_config_path() == xdg_config_home / "qmtlink" / "config.toml"
 
 
 def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
