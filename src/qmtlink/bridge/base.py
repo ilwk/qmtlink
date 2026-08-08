@@ -5,12 +5,14 @@ from typing import Protocol
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    EventBatch,
     OrderPreview,
     OrderRecord,
     OrderRequest,
     OrderResult,
     Position,
     Quote,
+    QuoteSubscription,
     TradeRecord,
 )
 
@@ -23,6 +25,12 @@ class Bridge(Protocol):
     def capabilities(self) -> dict[str, object]: ...
 
     def get_quotes(self, symbols: list[str]) -> list[Quote]: ...
+
+    def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription: ...
+
+    def poll_events(
+        self, *, after_sequence: int, timeout: float = 0.0, limit: int = 200
+    ) -> EventBatch: ...
 
     def get_asset(self) -> AccountAsset: ...
 

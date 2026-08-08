@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from qmtlink import __version__
@@ -100,6 +101,37 @@ def create_app(
         started = time.perf_counter()
         data = [quote.model_dump(mode="json") for quote in backend.get_quotes(payload.symbols)]
         return _success(data, started)
+
+    @app.post("/api/v1/market/subscriptions")
+    async def subscribe_quotes(
+        payload: QuoteRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        subscription = backend.subscribe_quotes(payload.symbols)
+        return _success(subscription.model_dump(mode="json"), started)
+
+    @app.get("/api/v1/events")
+    async def events(
+        after_sequence: int = Query(default=0, ge=0),
+        timeout: float = Query(default=20.0, ge=0.0, le=30.0),
+        limit: int = Query(default=200, ge=1, le=1_000),
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        deadline = time.monotonic() + timeout
+        while True:
+            batch = backend.poll_events(
+                after_sequence=after_sequence,
+                timeout=0,
+                limit=limit,
+            )
+            if batch.events or time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+        return _success(batch.model_dump(mode="json"), started)
 
     @app.get("/api/v1/account/asset")
     async def account_asset(

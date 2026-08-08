@@ -9,6 +9,7 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    EventBatch,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -17,9 +18,11 @@ from qmtlink.models import (
     OrderType,
     Position,
     Quote,
+    QuoteSubscription,
     TradeRecord,
 )
 
+from .events import EventJournal
 from .idempotency import IdempotencyStore, default_idempotency_path
 
 
@@ -52,6 +55,8 @@ class XtQuantBridge:
         self._strategy_name = settings.strategy_name
         self._lock = RLock()
         self._connected = False
+        self._events = EventJournal()
+        self._quote_subscriptions: dict[str, int] = {}
         session_id = settings.session_id or (time.time_ns() % 2_000_000_000) + 1
         self._account = StockAccount(settings.account_id, settings.account_type)
         self._trader = XtQuantTrader(settings.qmt_path, session_id)
@@ -61,9 +66,53 @@ class XtQuantBridge:
         class Callback(XtQuantTraderCallback):
             def on_connected(self) -> None:
                 bridge._connected = True
+                bridge._events.publish("connection", {"connected": True})
 
             def on_disconnected(self) -> None:
                 bridge._connected = False
+                bridge._events.publish("connection", {"connected": False})
+
+            def on_stock_order(self, order: Any) -> None:
+                mapped = bridge._order(order)
+                bridge._events.publish("order", mapped.model_dump(mode="json"))
+
+            def on_stock_trade(self, trade: Any) -> None:
+                mapped = bridge._trade(trade)
+                bridge._events.publish("trade", mapped.model_dump(mode="json"))
+
+            def on_order_error(self, error: Any) -> None:
+                bridge._events.publish(
+                    "order_error",
+                    {
+                        "order_id": str(getattr(error, "order_id", "")),
+                        "error_id": int(getattr(error, "error_id", 0)),
+                        "error_message": str(getattr(error, "error_msg", "")),
+                    },
+                )
+
+            def on_cancel_error(self, error: Any) -> None:
+                bridge._events.publish(
+                    "cancel_error",
+                    {
+                        "order_id": str(getattr(error, "order_id", "")),
+                        "error_id": int(getattr(error, "error_id", 0)),
+                        "error_message": str(getattr(error, "error_msg", "")),
+                    },
+                )
+
+            def on_stock_asset(self, asset: Any) -> None:
+                mapped = bridge._asset(asset)
+                bridge._events.publish("account", mapped.model_dump(mode="json"))
+
+            def on_account_status(self, status: Any) -> None:
+                bridge._events.publish(
+                    "account_status",
+                    {
+                        "account_id": str(getattr(status, "account_id", "")),
+                        "account_type": int(getattr(status, "account_type", 0)),
+                        "status": int(getattr(status, "status", 0)),
+                    },
+                )
 
         self._callback = Callback()
         try:
@@ -129,7 +178,7 @@ class XtQuantBridge:
         return {
             "mode": self.mode,
             "market_data": True,
-            "realtime_stream": False,
+            "realtime_stream": True,
             "trading": True,
             "real_trading": True,
             "account_queries": True,
@@ -173,6 +222,79 @@ class XtQuantBridge:
             )
         return quotes
 
+    def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
+        normalized = list(dict.fromkeys(symbol.strip().upper() for symbol in symbols))
+        cursor = self._events.cursor
+        created: list[int] = []
+        try:
+            for symbol in normalized:
+                if symbol in self._quote_subscriptions:
+                    continue
+
+                def on_quote(payload: Any, *, subscribed_symbol: str = symbol) -> None:
+                    quote = self._quote_from_callback(subscribed_symbol, payload)
+                    if quote is not None:
+                        self._events.publish("quote", quote.model_dump(mode="json"))
+
+                subscription_id = self._xtdata.subscribe_quote(
+                    symbol,
+                    period="tick",
+                    count=0,
+                    callback=on_quote,
+                )
+                if subscription_id is None or int(subscription_id) <= 0:
+                    raise QMTLinkError(
+                        "QMT_MARKET_SUBSCRIBE_FAILED",
+                        f"subscribe_quote failed for {symbol}: {subscription_id}",
+                        retryable=True,
+                        status_code=502,
+                    )
+                numeric_id = int(subscription_id)
+                self._quote_subscriptions[symbol] = numeric_id
+                created.append(numeric_id)
+        except Exception:
+            for subscription_id in created:
+                try:
+                    self._xtdata.unsubscribe_quote(subscription_id)
+                except Exception:
+                    pass
+            for symbol, subscription_id in list(self._quote_subscriptions.items()):
+                if subscription_id in created:
+                    self._quote_subscriptions.pop(symbol, None)
+            raise
+        return QuoteSubscription(symbols=normalized, cursor=cursor)
+
+    def poll_events(
+        self, *, after_sequence: int, timeout: float = 0.0, limit: int = 200
+    ) -> EventBatch:
+        return self._events.poll(
+            after_sequence=after_sequence,
+            timeout=timeout,
+            limit=limit,
+        )
+
+    @classmethod
+    def _quote_from_callback(cls, symbol: str, payload: Any) -> Quote | None:
+        item: Any = payload
+        if isinstance(item, dict) and symbol in item:
+            item = item[symbol]
+        if isinstance(item, (list, tuple)):
+            item = item[-1] if item else None
+        if not isinstance(item, dict):
+            return None
+        last_price = cls._number(item, "lastPrice", "last_price", "close") or 0.0
+        if last_price <= 0:
+            return None
+        return Quote(
+            symbol=symbol,
+            last_price=last_price,
+            open=cls._number(item, "open"),
+            high=cls._number(item, "high"),
+            low=cls._number(item, "low"),
+            volume=cls._number(item, "volume"),
+            timestamp=item.get("time") or item.get("timestamp"),
+        )
+
     def get_asset(self) -> AccountAsset:
         asset = self._invoke("query_stock_asset", self._account)
         if asset is None:
@@ -182,6 +304,10 @@ class XtQuantBridge:
                 retryable=True,
                 status_code=502,
             )
+        return self._asset(asset)
+
+    @staticmethod
+    def _asset(asset: Any) -> AccountAsset:
         return AccountAsset(
             account_id=str(asset.account_id),
             cash=float(asset.cash),
@@ -383,6 +509,12 @@ class XtQuantBridge:
 
     def close(self) -> None:
         with self._lock:
+            for subscription_id in self._quote_subscriptions.values():
+                try:
+                    self._xtdata.unsubscribe_quote(subscription_id)
+                except Exception:
+                    pass
+            self._quote_subscriptions.clear()
             trader = getattr(self, "_trader", None)
             try:
                 if trader is not None:

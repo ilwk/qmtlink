@@ -33,6 +33,33 @@ async def test_quotes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_subscribe_and_poll_quote_events() -> None:
+    headers = {"X-API-Key": "test-secret"}
+    async with make_client() as client:
+        subscribed = await client.post(
+            "/api/v1/market/subscriptions",
+            headers=headers,
+            json={"symbols": ["000001.SZ"]},
+        )
+        cursor = subscribed.json()["data"]["cursor"]
+        events = await client.get(
+            "/api/v1/events",
+            headers=headers,
+            params={"after_sequence": cursor, "timeout": 0},
+        )
+    assert events.status_code == 200
+    assert events.json()["data"]["events"][0]["event_type"] == "quote"
+    assert events.json()["data"]["events"][0]["payload"]["symbol"] == "000001.SZ"
+
+
+@pytest.mark.asyncio
+async def test_events_require_api_key() -> None:
+    async with make_client() as client:
+        response = await client.get("/api/v1/events", params={"timeout": 0})
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_order_preview_requires_api_key() -> None:
     async with make_client() as client:
         response = await client.post(

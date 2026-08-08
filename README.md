@@ -10,6 +10,7 @@ QmtLink 是一个面向 A 股 miniQMT/xtquant 的非官方中转工具，让 Win
 - 提供 Python SDK，方便量化项目接入实盘
 - 提供 HTTP 接口，隔离策略代码与 Windows miniQMT 环境
 - 支持行情、资产、持仓、委托、成交、下单、查单和撤单
+- 支持带单调游标的行情、委托、成交和账户事件续读
 - 使用 SQLite 持久化下单幂等记录，降低重复下单风险
 
 QmtLink 对外使用 `buy`、`sell`、`limit` 等可读字段，在 bridge 内部统一转换为 xtquant
@@ -98,9 +99,18 @@ from qmtlink import QMTClient
 
 with QMTClient() as client:
     print(client.health())
-    print(client.get_quotes(["000001.SZ"]))
+    subscription = client.subscribe_quotes(["000001.SZ"])
+    events = client.poll_events(after_sequence=subscription.cursor, timeout=20)
+    print(events.events)
     print(client.get_positions())
 ```
+
+事件接口使用单调递增序号；客户端只有在成功处理一批事件后才保存
+`next_sequence`。短暂断线后从该序号继续轮询，不需要猜测断线期间是否漏掉成交。事件还
+包含 `order_error` 和 `cancel_error`，调用方必须显式处理失败回报。若游标早于服务端保留
+窗口，接口返回 `EVENT_CURSOR_EXPIRED`；若 QmtLink 服务进程重启导致旧游标超前，则返回
+`EVENT_CURSOR_INVALID`。两种情况都必须重新查询账户、持仓、当日委托和成交后再恢复事件
+消费。事件日志位于内存，不承诺跨服务进程重启续读。
 
 量化项目与 bridge 在同一台机器时，SDK 会自动读取同一份配置。分开部署时，在量化项目机器
 的配置文件中设置 `url`，并使用与 bridge 相同的 `api_key`。

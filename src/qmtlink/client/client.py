@@ -9,12 +9,14 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    EventBatch,
     OrderPreview,
     OrderRecord,
     OrderRequest,
     OrderResult,
     Position,
     Quote,
+    QuoteSubscription,
     TradeRecord,
 )
 
@@ -71,6 +73,30 @@ class QMTClient:
     def get_quotes(self, symbols: list[str]) -> list[Quote]:
         data = self._request("POST", "/api/v1/market/quotes", json={"symbols": symbols})["data"]
         return [Quote.model_validate(item) for item in data]
+
+    def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
+        data = self._request(
+            "POST", "/api/v1/market/subscriptions", json={"symbols": symbols}
+        )["data"]
+        return QuoteSubscription.model_validate(data)
+
+    def poll_events(
+        self,
+        *,
+        after_sequence: int,
+        timeout: float = 20.0,
+        limit: int = 200,
+    ) -> EventBatch:
+        data = self._request(
+            "GET",
+            "/api/v1/events",
+            params={
+                "after_sequence": after_sequence,
+                "timeout": timeout,
+                "limit": limit,
+            },
+        )["data"]
+        return EventBatch.model_validate(data)
 
     def get_asset(self) -> AccountAsset:
         data = self._request("GET", "/api/v1/account/asset")["data"]

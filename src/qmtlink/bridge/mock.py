@@ -6,15 +6,18 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    EventBatch,
     OrderPreview,
     OrderRecord,
     OrderRequest,
     OrderResult,
     Position,
     Quote,
+    QuoteSubscription,
     TradeRecord,
 )
 
+from .events import EventJournal
 from .idempotency import IdempotencyStore
 
 
@@ -24,6 +27,7 @@ class MockBridge:
     def __init__(self, idempotency_db: str = ":memory:") -> None:
         self._orders: dict[str, OrderRecord] = {}
         self._idempotency = IdempotencyStore(idempotency_db)
+        self._events = EventJournal()
 
     def health(self) -> dict[str, object]:
         return {"mode": self.mode, "qmt_connected": False, "mock": True}
@@ -32,7 +36,7 @@ class MockBridge:
         return {
             "mode": self.mode,
             "market_data": True,
-            "realtime_stream": False,
+            "realtime_stream": True,
             "trading": True,
             "real_trading": False,
             "account_queries": True,
@@ -51,6 +55,22 @@ class MockBridge:
             )
             for symbol in symbols
         ]
+
+    def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
+        cursor = self._events.cursor
+        quotes = self.get_quotes(symbols)
+        for quote in quotes:
+            self._events.publish("quote", quote.model_dump(mode="json"))
+        return QuoteSubscription(symbols=[quote.symbol for quote in quotes], cursor=cursor)
+
+    def poll_events(
+        self, *, after_sequence: int, timeout: float = 0.0, limit: int = 200
+    ) -> EventBatch:
+        return self._events.poll(
+            after_sequence=after_sequence,
+            timeout=timeout,
+            limit=limit,
+        )
 
     def get_asset(self) -> AccountAsset:
         return AccountAsset(
@@ -116,6 +136,9 @@ class MockBridge:
             traded_price=0.0,
             status="accepted",
         )
+        self._events.publish(
+            "order", self._orders[result.order_id].model_dump(mode="json")
+        )
         self._idempotency.complete(result)
         return result
 
@@ -126,6 +149,7 @@ class MockBridge:
                 "ORDER_NOT_FOUND", f"order {order_id} was not found", status_code=404
             )
         order.status = "canceled"
+        self._events.publish("order", order.model_dump(mode="json"))
         return CancelResult(order_id=order_id, status="cancel_requested", submitted=True)
 
     def close(self) -> None:

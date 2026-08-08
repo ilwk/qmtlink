@@ -144,9 +144,23 @@ def install_fake_xtquant(monkeypatch) -> None:
         setattr(constants, name, value)
 
     data = ModuleType("xtquant.xtdata")
+    data.callbacks = {}
+    data.unsubscribed = []
     data.get_full_tick = lambda symbols: {
         symbol: {"lastPrice": 10.5, "volume": 1000, "time": 1_786_000_000_000} for symbol in symbols
     }
+
+    def subscribe_quote(symbol, **kwargs):
+        subscription_id = len(data.callbacks) + 1
+        data.callbacks[subscription_id] = (symbol, kwargs["callback"])
+        return subscription_id
+
+    def unsubscribe_quote(subscription_id):
+        data.unsubscribed.append(subscription_id)
+        data.callbacks.pop(subscription_id, None)
+
+    data.subscribe_quote = subscribe_quote
+    data.unsubscribe_quote = unsubscribe_quote
     trader = ModuleType("xtquant.xttrader")
     trader.XtQuantTrader = FakeTrader
     trader.XtQuantTraderCallback = FakeCallback
@@ -189,6 +203,42 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     assert bridge.get_trades()[0].commission == 0.5
     assert bridge.get_quotes(["000001.SZ"])[0].last_price == 10.5
 
+    subscription = bridge.subscribe_quotes(["000001.SZ"])
+    _, quote_callback = bridge._xtdata.callbacks[1]
+    quote_callback(
+        {
+            "000001.SZ": [
+                {"lastPrice": 10.6, "volume": 1100, "time": 1_786_000_001_000}
+            ]
+        }
+    )
+    quote_batch = bridge.poll_events(
+        after_sequence=subscription.cursor, timeout=0
+    )
+    assert quote_batch.events[-1].payload["last_price"] == 10.6
+
+    bridge._callback.on_stock_order(FakeTrader._order(bridge._account, 123))
+    bridge._callback.on_stock_trade(bridge._trader.query_stock_trades(bridge._account)[0])
+    bridge._callback.on_order_error(
+        SimpleNamespace(order_id=123, error_id=42, error_msg="rejected")
+    )
+    bridge._callback.on_cancel_error(
+        SimpleNamespace(order_id=123, error_id=43, error_msg="not cancelable")
+    )
+    broker_events = bridge.poll_events(
+        after_sequence=quote_batch.next_sequence, timeout=0
+    )
+    assert [event.event_type for event in broker_events.events] == [
+        "order",
+        "trade",
+        "order_error",
+        "cancel_error",
+    ]
+    assert broker_events.events[0].payload["client_order_id"] == "client-001"
+    assert broker_events.events[1].payload["trade_id"] == "trade-1"
+    assert broker_events.events[2].payload["error_id"] == 42
+    assert broker_events.events[3].payload["error_message"] == "not cancelable"
+
     order = OrderRequest(
         symbol="000001.SZ",
         side="buy",
@@ -208,6 +258,7 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
 
     bridge.close()
     assert FakeTrader.instances[-1].stopped is True
+    assert bridge._xtdata.unsubscribed == [1]
 
 
 def test_xtquant_bridge_does_not_guess_unknown_broker_values(monkeypatch) -> None:
