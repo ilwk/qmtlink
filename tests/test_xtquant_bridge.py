@@ -6,7 +6,7 @@ import pytest
 from qmtlink.bridge.xtquant import XtQuantBridge
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import OrderRequest
+from qmtlink.models import HistoryRequest, OrderRequest
 
 
 class FakeCallback:
@@ -146,8 +146,28 @@ def install_fake_xtquant(monkeypatch) -> None:
     data = ModuleType("xtquant.xtdata")
     data.callbacks = {}
     data.unsubscribed = []
+    data.download_calls = []
     data.get_full_tick = lambda symbols: {
         symbol: {"lastPrice": 10.5, "volume": 1000, "time": 1_786_000_000_000} for symbol in symbols
+    }
+    data.download_history_data2 = lambda symbols, period, start, end: data.download_calls.append(
+        (symbols, period, start, end)
+    )
+    data.get_market_data_ex = lambda fields, symbols, period, start, end, count, dividend, fill: {
+        symbol: [
+            {
+                "time": 1_786_000_000_000,
+                "open": 10.0,
+                "high": 10.5,
+                "low": 9.8,
+                "close": 10.2,
+                "volume": 1000,
+                "amount": 10200.0,
+                "preClose": 9.9,
+                "suspendFlag": 0,
+            }
+        ]
+        for symbol in symbols
     }
 
     def subscribe_quote(symbol, **kwargs):
@@ -202,6 +222,18 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     assert bridge.get_order("123").client_order_id == "client-001"
     assert bridge.get_trades()[0].commission == 0.5
     assert bridge.get_quotes(["000001.SZ"])[0].last_price == 10.5
+    history = bridge.get_history(
+        HistoryRequest(
+            symbols=["000001.SZ"],
+            period="1d",
+            start_time="20240101",
+            end_time="20240131",
+        )
+    )
+    assert history.bar_count == {"000001.SZ": 1}
+    assert history.bars["000001.SZ"][0]["suspendFlag"] == 0
+    assert history.bars["000001.SZ"][0]["date"] == 20260806
+    assert bridge._xtdata.download_calls == [(["000001.SZ"], "1d", "20240101", "20240131")]
 
     subscription = bridge.subscribe_quotes(["000001.SZ"])
     _, quote_callback = bridge._xtdata.callbacks[1]

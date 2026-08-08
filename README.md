@@ -9,6 +9,7 @@ QmtLink 是一个面向 A 股 miniQMT/xtquant 的非官方中转工具，让 Win
 - 提供默认输出 JSON 的 `qmt` 命令，方便 AI 和自动化脚本调用
 - 提供 Python SDK，方便量化项目接入实盘
 - 提供 HTTP 接口，隔离策略代码与 Windows miniQMT 环境
+- 支持历史 tick/K 线、时间范围/条数、复权和 xtdata 原始字段，供回测读取
 - 支持行情、资产、持仓、委托、成交、下单、查单和撤单
 - 支持带单调游标的行情、委托、成交和账户事件续读
 - 使用 SQLite 持久化下单幂等记录，降低重复下单风险
@@ -32,6 +33,12 @@ uv tool install qmtlink
 
 ```bash
 qmt update
+```
+
+查看当前版本：
+
+```bash
+qmt --version
 ```
 
 在 Windows miniQMT 交易机上安装 Bridge：
@@ -63,6 +70,7 @@ qmt bridge run
 qmt health
 qmt capabilities
 qmt market quote --symbol 000001.SZ --symbol 600519.SH
+qmt market history --symbol 000001.SZ --period 1d --start-time 20200101 --end-time 20241231 --dividend-type front_ratio
 qmt account asset
 qmt account positions
 qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
@@ -105,14 +113,37 @@ QmtLink 会启动唯一的 XtQuantTrader 运行实例，连接 miniQMT 并订阅
 
 ```python
 from qmtlink import QMTClient
+from qmtlink.models import HistoryRequest
 
 with QMTClient() as client:
     print(client.health())
+    history = client.get_history(HistoryRequest(
+        symbols=["000001.SZ"],
+        period="1d",
+        start_time="20200101",
+        end_time="20241231",
+        dividend_type="front_ratio",
+    ))
+    print(history.bars["000001.SZ"])
     subscription = client.subscribe_quotes(["000001.SZ"])
     events = client.poll_events(after_sequence=subscription.cursor, timeout=20)
     print(events.events)
     print(client.get_positions())
 ```
+
+历史行情接口为 `POST /api/v1/market/history`。默认返回 xtdata 的全部原始字段，数据按
+`bars[symbol]` 分组；常用字段包括 `time`、`open`、`high`、`low`、`close`、`volume`、
+`amount`、`preClose` 和 `suspendFlag`。请求默认会先调用 xtdata 补充本地历史数据；如果只
+读取已经下载的数据，可设置 `download=false`。`fill_data` 默认关闭，避免把停牌期间填充
+的数据误当成真实成交；复权方式必须由回测明确选择，默认是不复权。日线还会提供
+AKQuant 直接可用的 `date`（`YYYYMMDD` 整数）字段；`time` 原始时间戳仍会保留。
+
+历史查询接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回时保留请求中的
+代码形式。
+
+历史数据请求按闭区间时间范围返回；长周期分钟数据建议按日期分段请求，避免单个 JSON
+响应过大。交易日历、合约信息和除权因子暂由 AKQuant/上层数据源负责，不在 QmtLink 中
+重复建模。
 
 事件接口使用单调递增序号；客户端只有在成功处理一批事件后才保存
 `next_sequence`。短暂断线后从该序号继续轮询，不需要猜测断线期间是否漏掉成交。事件还

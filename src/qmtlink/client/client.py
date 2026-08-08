@@ -10,6 +10,8 @@ from qmtlink.models import (
     AccountAsset,
     CancelResult,
     EventBatch,
+    HistoricalData,
+    HistoryRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -73,6 +75,13 @@ class QMTClient:
     def get_quotes(self, symbols: list[str]) -> list[Quote]:
         data = self._request("POST", "/api/v1/market/quotes", json={"symbols": symbols})["data"]
         return [Quote.model_validate(item) for item in data]
+
+    def get_history(self, request: HistoryRequest) -> HistoricalData:
+        data = self._request(
+            "POST", "/api/v1/market/history", json=request.model_dump(mode="json")
+        )["data"]
+        return HistoricalData.model_validate(data)
+
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         data = self._request(

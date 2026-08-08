@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 
+from qmtlink import __version__
 from qmtlink.client import QMTClient
 from qmtlink.config import (
     ClientSettings,
@@ -17,7 +18,7 @@ from qmtlink.config import (
     resolve_config_path,
 )
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import OrderRequest, OrderSide, OrderType
+from qmtlink.models import HistoryRequest, OrderRequest, OrderSide, OrderType
 
 from .output import emit
 
@@ -30,6 +31,25 @@ app.add_typer(bridge_app, name="bridge")
 app.add_typer(market_app, name="market")
 app.add_typer(account_app, name="account")
 app.add_typer(order_app, name="order")
+
+
+def _show_version(value: bool) -> None:
+    if value:
+        typer.echo(f"qmtlink {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def cli(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_show_version,
+        is_eager=True,
+        help="显示版本号",
+    ),
+) -> None:
+    del version
 
 
 def _client() -> QMTClient:
@@ -196,6 +216,39 @@ def market_quote(
     try:
         with _client() as client:
             emit(client.get_quotes(symbols), pretty=pretty)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@market_app.command("history")
+def market_history(
+    symbols: Annotated[list[str], typer.Option("--symbol", help="Repeat for multiple symbols")],
+    period: Annotated[str, typer.Option("--period")] = "1d",
+    start_time: Annotated[str, typer.Option("--start-time")] = "",
+    end_time: Annotated[str, typer.Option("--end-time")] = "",
+    count: Annotated[int, typer.Option("--count", min=-1)] = -1,
+    dividend_type: Annotated[str, typer.Option("--dividend-type")] = "none",
+    fill_data: Annotated[bool, typer.Option("--fill-data/--no-fill-data")] = False,
+    download: Annotated[bool, typer.Option("--download/--no-download")] = True,
+    fields: Annotated[
+        list[str] | None, typer.Option("--field", help="Repeat to request raw fields")
+    ] = None,
+    pretty: Annotated[bool, typer.Option("--pretty")] = False,
+) -> None:
+    try:
+        request = HistoryRequest(
+            symbols=symbols,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            count=count,
+            dividend_type=dividend_type,
+            fill_data=fill_data,
+            download=download,
+            fields=fields or [],
+        )
+        with _client() as client:
+            emit(client.get_history(request), pretty=pretty)
     except Exception as exc:
         _handle_error(exc)
 

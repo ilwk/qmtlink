@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import math
 import time
+from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
 
@@ -10,6 +12,8 @@ from qmtlink.models import (
     AccountAsset,
     CancelResult,
     EventBatch,
+    HistoricalData,
+    HistoryRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -184,6 +188,23 @@ class XtQuantBridge:
             "account_queries": True,
             "cancel_orders": True,
             "supported_order_types": [OrderType.LIMIT.value],
+            "historical_data": True,
+            "supported_periods": [
+                "tick",
+                "1m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "1d",
+                "1w",
+                "1mon",
+                "1q",
+                "1hy",
+                "1y",
+                "stoppricedata",
+            ],
+            "supported_dividend_types": ["none", "front", "back", "front_ratio", "back_ratio"],
         }
 
     @staticmethod
@@ -221,6 +242,151 @@ class XtQuantBridge:
                 )
             )
         return quotes
+
+    def _invoke_xtdata(self, method: str, *args: object) -> Any:
+        with self._lock:
+            self._ensure_connected()
+            try:
+                return getattr(self._xtdata, method)(*args)
+            except QMTLinkError:
+                raise
+            except Exception as exc:
+                raise QMTLinkError(
+                    "QMT_MARKET_DATA_FAILED",
+                    f"{method} failed: {exc}",
+                    retryable=True,
+                    status_code=502,
+                ) from exc
+
+    @staticmethod
+    def _json_value(value: Any) -> Any:
+        if value is None or isinstance(value, (str, int, bool)):
+            return value
+        if isinstance(value, float):
+            return None if math.isnan(value) else value
+        item = getattr(value, "item", None)
+        if callable(item):
+            try:
+                return XtQuantBridge._json_value(item())
+            except (TypeError, ValueError):
+                pass
+        isoformat = getattr(value, "isoformat", None)
+        if callable(isoformat):
+            return isoformat()
+        return str(value)
+
+    @classmethod
+    def _history_rows(cls, frame: Any) -> list[dict[str, Any]]:
+        if frame is None:
+            return []
+        if hasattr(frame, "to_dict"):
+            try:
+                raw_rows = frame.to_dict(orient="records")
+            except TypeError:
+                raw_rows = frame.to_dict()
+        elif isinstance(frame, list):
+            raw_rows = frame
+        elif isinstance(frame, dict):
+            values = list(frame.values())
+            if values and all(isinstance(value, (list, tuple)) for value in values):
+                length = max(len(value) for value in values)
+                raw_rows = [
+                    {
+                        key: value[index] if index < len(value) else None
+                        for key, value in frame.items()
+                    }
+                    for index in range(length)
+                ]
+            else:
+                raw_rows = [frame]
+        else:
+            return []
+
+        if isinstance(raw_rows, dict):
+            raw_rows = [raw_rows]
+        index = getattr(frame, "index", None)
+        rows: list[dict[str, Any]] = []
+        for position, raw_row in enumerate(raw_rows):
+            if not isinstance(raw_row, dict):
+                continue
+            row = {str(key): cls._json_value(value) for key, value in raw_row.items()}
+            if "time" not in row and index is not None:
+                try:
+                    row["time"] = cls._json_value(index[position])
+                except (IndexError, KeyError, TypeError):
+                    pass
+            rows.append(row)
+        return rows
+
+    def get_history(self, request: HistoryRequest) -> HistoricalData:
+        data_symbols = [
+            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol
+            for symbol in request.symbols
+        ]
+        if request.download:
+            downloader = getattr(self._xtdata, "download_history_data2", None)
+            if callable(downloader):
+                self._invoke_xtdata(
+                    "download_history_data2",
+                    data_symbols,
+                    request.period,
+                    request.start_time,
+                    request.end_time,
+                )
+            else:
+                for symbol in data_symbols:
+                    self._invoke_xtdata(
+                        "download_history_data",
+                        symbol,
+                        request.period,
+                        request.start_time,
+                        request.end_time,
+                    )
+
+        raw = self._invoke_xtdata(
+            "get_market_data_ex",
+            request.fields,
+            data_symbols,
+            request.period,
+            request.start_time,
+            request.end_time,
+            request.count,
+            request.dividend_type,
+            request.fill_data,
+        )
+        if not isinstance(raw, dict):
+            raise QMTLinkError(
+                "QMT_MARKET_DATA_FAILED",
+                "get_market_data_ex returned a non-dict result",
+                status_code=502,
+            )
+        bars: dict[str, list[dict[str, Any]]] = {}
+        for requested_symbol, data_symbol in zip(request.symbols, data_symbols, strict=True):
+            rows = self._history_rows(raw.get(data_symbol))
+            if request.period == "1d":
+                for row in rows:
+                    timestamp = row.get("time")
+                    if isinstance(timestamp, (int, float)) and timestamp > 100_000_000_000:
+                        row.setdefault(
+                            "date",
+                            int(
+                                datetime.fromtimestamp(
+                                    timestamp / 1000, tz=UTC
+                                ).strftime("%Y%m%d")
+                            ),
+                        )
+            bars[requested_symbol] = rows
+        return HistoricalData(
+            period=request.period,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            count=request.count,
+            dividend_type=request.dividend_type,
+            fill_data=request.fill_data,
+            bars=bars,
+            bar_count={symbol: len(rows) for symbol, rows in bars.items()},
+        )
+
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         normalized = list(dict.fromkeys(symbol.strip().upper() for symbol in symbols))

@@ -6,6 +6,8 @@ from qmtlink.models import (
     AccountAsset,
     CancelResult,
     EventBatch,
+    HistoricalData,
+    HistoryRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -25,6 +27,8 @@ class Bridge(Protocol):
     def capabilities(self) -> dict[str, object]: ...
 
     def get_quotes(self, symbols: list[str]) -> list[Quote]: ...
+
+    def get_history(self, request: HistoryRequest) -> HistoricalData: ...
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription: ...
 

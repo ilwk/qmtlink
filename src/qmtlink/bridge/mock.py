@@ -7,6 +7,8 @@ from qmtlink.models import (
     AccountAsset,
     CancelResult,
     EventBatch,
+    HistoricalData,
+    HistoryRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -42,6 +44,23 @@ class MockBridge:
             "account_queries": True,
             "cancel_orders": True,
             "supported_order_types": ["limit"],
+            "historical_data": True,
+            "supported_periods": [
+                "tick",
+                "1m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "1d",
+                "1w",
+                "1mon",
+                "1q",
+                "1hy",
+                "1y",
+                "stoppricedata",
+            ],
+            "supported_dividend_types": ["none", "front", "back", "front_ratio", "back_ratio"],
         }
 
     def get_quotes(self, symbols: list[str]) -> list[Quote]:
@@ -55,6 +74,60 @@ class MockBridge:
             )
             for symbol in symbols
         ]
+
+    def get_history(self, request: HistoryRequest) -> HistoricalData:
+        bars: dict[str, list[dict[str, object]]] = {}
+        for symbol in request.symbols:
+            seed = sum(map(ord, symbol)) % 100
+            rows = [
+                {
+                    "time": 1_704_067_200_000,
+                    "date": 20240101,
+                    "open": 10.0 + seed / 100,
+                    "high": 10.4 + seed / 100,
+                    "low": 9.8 + seed / 100,
+                    "close": 10.2 + seed / 100,
+                    "volume": 100_000,
+                    "amount": 1_020_000.0,
+                    "preClose": 9.9 + seed / 100,
+                    "suspendFlag": 0,
+                },
+                {
+                    "time": 1_704_153_600_000,
+                    "date": 20240102,
+                    "open": 10.2 + seed / 100,
+                    "high": 10.6 + seed / 100,
+                    "low": 10.1 + seed / 100,
+                    "close": 10.5 + seed / 100,
+                    "volume": 120_000,
+                    "amount": 1_260_000.0,
+                    "preClose": 10.2 + seed / 100,
+                    "suspendFlag": 0,
+                },
+            ]
+            if request.count >= 0:
+                rows = rows[-request.count :]
+            if request.fields:
+                rows = [
+                    {
+                        key: value
+                        for key, value in row.items()
+                        if key in {"time", "date"} or key in request.fields
+                    }
+                    for row in rows
+                ]
+            bars[symbol] = rows
+        return HistoricalData(
+            period=request.period,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            count=request.count,
+            dividend_type=request.dividend_type,
+            fill_data=request.fill_data,
+            bars=bars,
+            bar_count={symbol: len(rows) for symbol, rows in bars.items()},
+        )
+
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         cursor = self._events.cursor

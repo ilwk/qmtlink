@@ -1,6 +1,6 @@
 from .account import AccountAsset, OrderRecord, Position, TradeRecord
 from .event import BridgeEvent, EventBatch, QuoteSubscription
-from .market import Quote, QuoteRequest
+from .market import HistoricalData, HistoryRequest, Quote, QuoteRequest
 from .order import (
     CancelRequest,
     CancelResult,
@@ -17,6 +17,8 @@ __all__ = [
     "CancelRequest",
     "CancelResult",
     "EventBatch",
+    "HistoricalData",
+    "HistoryRequest",
     "OrderPreview",
     "OrderRecord",
     "OrderRequest",

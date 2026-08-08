@@ -9,6 +9,14 @@ from qmtlink.cli.main import app
 runner = CliRunner()
 
 
+def test_version_option() -> None:
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.stdout.startswith("qmtlink ")
+    assert result.stdout.strip().split(maxsplit=1)[1]
+
+
 def test_update_uses_uv_tool_upgrade(monkeypatch) -> None:
     command = {}
     monkeypatch.setattr("qmtlink.cli.main.shutil.which", lambda name: "/usr/bin/uv")

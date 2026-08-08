@@ -13,7 +13,7 @@ from qmtlink import __version__
 from qmtlink.bridge import Bridge, create_bridge
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import CancelRequest, OrderRequest, QuoteRequest
+from qmtlink.models import CancelRequest, HistoryRequest, OrderRequest, QuoteRequest
 
 
 def _success(data: object, started: float) -> dict[str, object]:
@@ -101,6 +101,16 @@ def create_app(
         started = time.perf_counter()
         data = [quote.model_dump(mode="json") for quote in backend.get_quotes(payload.symbols)]
         return _success(data, started)
+
+    @app.post("/api/v1/market/history")
+    async def market_history(
+        payload: HistoryRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_history(payload).model_dump(mode="json"), started)
+
 
     @app.post("/api/v1/market/subscriptions")
     async def subscribe_quotes(

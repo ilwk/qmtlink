@@ -33,6 +33,23 @@ async def test_quotes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_history_requires_api_key_and_returns_raw_backtest_fields() -> None:
+    async with make_client() as client:
+        unauthorized = await client.post(
+            "/api/v1/market/history", json={"symbols": ["000001.SZ"], "count": 1}
+        )
+        response = await client.post(
+            "/api/v1/market/history",
+            headers={"X-API-Key": "test-secret"},
+            json={"symbols": ["000001.SZ"], "count": 1},
+        )
+    assert unauthorized.status_code == 401
+    assert response.status_code == 200
+    assert response.json()["data"]["bar_count"] == {"000001.SZ": 1}
+    assert "amount" in response.json()["data"]["bars"]["000001.SZ"][0]
+
+
+@pytest.mark.asyncio
 async def test_subscribe_and_poll_quote_events() -> None:
     headers = {"X-API-Key": "test-secret"}
     async with make_client() as client:
