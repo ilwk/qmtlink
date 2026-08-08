@@ -1,0 +1,19 @@
+# QmtLink 配置文件。
+# 顶层 API key 由 QmtLink 自动生成，client 和 server 共用。
+# Windows 路径请使用单引号，例如：qmt_path = 'C:\miniQMT安装目录\userdata_mini'
+# 也可以使用正斜杠，例如：qmt_path = "C:/miniQMT安装目录/userdata_mini"
+
+api_key = '{{API_KEY}}'
+
+[server]
+# Bridge 监听地址。0.0.0.0 允许局域网访问，请确认防火墙和 API key 已妥善配置。
+host = '0.0.0.0'
+port = 8000
+qmt_path = ''
+account_id = ''
+# 真实交易保护：保持 false；只有明确改为 true 并使用 --live 才允许下单。
+allow_trading = false
+
+[client]
+url = 'http://127.0.0.1:8000'
+timeout = 30.0

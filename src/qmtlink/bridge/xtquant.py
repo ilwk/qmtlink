@@ -57,7 +57,7 @@ class XtQuantBridge:
         self._connected = False
         self._events = EventJournal()
         self._quote_subscriptions: dict[str, int] = {}
-        session_id = settings.session_id or (time.time_ns() % 2_000_000_000) + 1
+        session_id = (time.time_ns() % 2_000_000_000) + 1
         self._account = StockAccount(settings.account_id, settings.account_type)
         self._trader = XtQuantTrader(settings.qmt_path, session_id)
 
@@ -136,7 +136,7 @@ class XtQuantBridge:
                     status_code=503,
                 )
             self._idempotency = IdempotencyStore(
-                settings.idempotency_db or default_idempotency_path()
+                default_idempotency_path()
             )
         except Exception:
             self.close()

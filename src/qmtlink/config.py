@@ -6,6 +6,7 @@ import os
 import secrets
 import tomllib
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -43,26 +44,8 @@ def create_default_config(path: str | Path | None = None) -> tuple[Path, bool]:
     if target.exists():
         return target, False
     api_key = secrets.token_urlsafe(32)
-    content = f'''# QmtLink 配置文件。
-# 顶层 API key 由 QmtLink 自动生成，client 和 server 共用。
-# Windows 路径请使用单引号，例如：qmt_path = 'C:\\miniQMT安装目录\\userdata_mini'
-# 也可以使用正斜杠，例如：qmt_path = "C:/miniQMT安装目录/userdata_mini"
-
-api_key = '{api_key}'
-
-[server]
-# Bridge 监听地址。0.0.0.0 允许局域网访问，请确认防火墙和 API key 已妥善配置。
-host = '0.0.0.0'
-port = 8000
-qmt_path = ''
-account_id = ''
-# 真实交易保护：保持 false；只有明确改为 true 并使用 --live 才允许下单。
-allow_trading = false
-
-[client]
-url = 'http://127.0.0.1:8000'
-timeout = 30.0
-'''
+    template = files("qmtlink").joinpath("config.template.toml").read_text(encoding="utf-8")
+    content = template.replace("{{API_KEY}}", api_key)
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("x", encoding="utf-8", newline="\n") as file:
@@ -87,10 +70,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _optional_int(value: object) -> int | None:
-    return None if value is None else int(value)
 
 
 def _config_section(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -150,9 +129,7 @@ class ServerSettings:
     qmt_path: str | None = None
     account_id: str | None = None
     account_type: str = "STOCK"
-    session_id: int | None = None
     strategy_name: str = "qmtlink"
-    idempotency_db: str | None = None
 
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> ServerSettings:
@@ -173,14 +150,8 @@ class ServerSettings:
             account_type=os.getenv(
                 "QMTLINK_ACCOUNT_TYPE", str(server.get("account_type", defaults.account_type))
             ).upper(),
-            session_id=_optional_int(
-                os.getenv("QMTLINK_SESSION_ID", server.get("session_id"))
-            ),
             strategy_name=os.getenv(
                 "QMTLINK_STRATEGY_NAME",
                 str(server.get("strategy_name", defaults.strategy_name)),
-            ),
-            idempotency_db=(
-                os.getenv("QMTLINK_IDEMPOTENCY_DB") or server.get("idempotency_db") or None
             ),
         )

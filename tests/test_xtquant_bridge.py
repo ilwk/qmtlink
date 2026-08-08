@@ -182,12 +182,12 @@ def install_fake_xtquant(monkeypatch) -> None:
 
 def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
     FakeTrader.instances.clear()
     bridge = XtQuantBridge(
         ServerSettings(
             qmt_path="C:/miniQMT/userdata_mini",
             account_id="test-account",
-            idempotency_db=":memory:",
         )
     )
 
@@ -263,11 +263,11 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
 
 def test_xtquant_bridge_does_not_guess_unknown_broker_values(monkeypatch) -> None:
     install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
     bridge = XtQuantBridge(
         ServerSettings(
             qmt_path="C:/miniQMT/userdata_mini",
             account_id="test-account",
-            idempotency_db=":memory:",
         )
     )
     raw_order = FakeTrader._order(bridge._account, 456)

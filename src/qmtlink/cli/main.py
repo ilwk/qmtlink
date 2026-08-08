@@ -110,9 +110,7 @@ def bridge_run(
             qmt_path=base.qmt_path,
             account_id=base.account_id,
             account_type=base.account_type,
-            session_id=base.session_id,
             strategy_name=base.strategy_name,
-            idempotency_db=base.idempotency_db,
         )
         startup = {
             "mode": settings.mode,

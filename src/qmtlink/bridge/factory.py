@@ -13,7 +13,7 @@ def create_bridge(settings: ServerSettings | str) -> Bridge:
         settings = ServerSettings(mode=settings)
     normalized = settings.mode.strip().lower()
     if normalized == "mock":
-        return MockBridge(settings.idempotency_db or ":memory:")
+        return MockBridge()
     if normalized == "real":
         return XtQuantBridge(settings)
     raise QMTLinkError("INVALID_MODE", f"unsupported bridge mode: {settings.mode}")

@@ -142,58 +142,14 @@ with QMTClient() as client:
 - Windows/Linux/macOS：`~/.config/qmtlink/config.toml`
 
 配置文件使用 TOML 分区，分别区分 server 和 client；顶层 `api_key` 由两者共用。首次执行 `qmt bridge run` 时，
-QmtLink 会生成以下配置：
-
-```toml
-api_key = '自动生成的随机密钥'
-
-[server]
-# Windows 路径请使用单引号，例如：'C:\miniQMT安装目录\userdata_mini'
-qmt_path = ''
-account_id = ''
-# 0.0.0.0 允许局域网访问，请确认防火墙和 API key 已妥善配置。
-host = '0.0.0.0'
-port = 8000
-# 真实交易保护：保持 false；只有明确改为 true 并使用 --live 才允许下单。
-allow_trading = false
-
-[client]
-url = 'http://127.0.0.1:8000'
-timeout = 30.0
-```
+QmtLink 会根据[配置模板](src/qmtlink/config.template.toml)生成配置。
 
 普通股票账户只需填写 `qmt_path` 和 `account_id`。两项都为空时自动使用 Mock 模式，两项
 都填写后自动使用真实模式；只填写一项会报告配置错误。自动生成的 `api_key` 应保留原值。
 
 ### 完整示例
 
-下面包含所有支持的配置项。`session_id` 和 `idempotency_db` 通常无需设置，因此保持注释即可。
-
-```toml
-# CLI、SDK 和 bridge 共用的访问密钥，请勿泄露。
-api_key = "自动生成的随机密钥"
-
-[server]
-# miniQMT 配置。
-qmt_path = 'C:\miniQMT安装目录\userdata_mini'
-account_id = "你的资金账号"
-account_type = "STOCK"
-strategy_name = "qmtlink"
-
-# bridge 服务配置。
-host = "0.0.0.0"
-port = 8000
-allow_trading = false
-
-# 高级 server 配置：不填写时由 QmtLink 自动处理。
-# session_id = 123456
-# idempotency_db = 'C:\Users\你的用户名\AppData\Local\QmtLink\orders.sqlite3'
-
-[client]
-# CLI 和 Python SDK 的 HTTP 客户端配置。
-url = "http://127.0.0.1:8000"
-timeout = 30.0
-```
+请直接参考[配置模板](src/qmtlink/config.template.toml)；未列出的高级参数使用程序默认值。
 
 ### 字段说明
 
@@ -209,9 +165,6 @@ timeout = 30.0
 | `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
 | `client.url` | `QMTLINK_URL` | 根据 server 地址生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
 | `client.timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
-| `server.session_id` | `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号；手动设置时应避免与其他实例重复 |
-| `server.idempotency_db` | `QMTLINK_IDEMPOTENCY_DB` | 用户数据目录 | 保存下单幂等记录的 SQLite 文件路径 |
-
 Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Linux/macOS 默认位于
 `~/.local/share/qmtlink/orders.sqlite3`。
 
@@ -224,8 +177,7 @@ Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Li
 3. `config.toml`
 4. 程序内置默认值
 
-最小配置示例见 [qmtlink.toml.example](qmtlink.toml.example)。如需把配置放到其他位置，可设置
-`QMTLINK_CONFIG` 指向目标文件。
+如需把配置放到其他位置，可设置 `QMTLINK_CONFIG` 指向目标文件。
 
 ## 参与开发
 
