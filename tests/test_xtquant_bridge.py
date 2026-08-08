@@ -147,28 +147,34 @@ def install_fake_xtquant(monkeypatch) -> None:
     data.callbacks = {}
     data.unsubscribed = []
     data.download_calls = []
+    data.history_calls = []
     data.get_full_tick = lambda symbols: {
         symbol: {"lastPrice": 10.5, "volume": 1000, "time": 1_786_000_000_000} for symbol in symbols
     }
     data.download_history_data2 = lambda symbols, period, start, end: data.download_calls.append(
         (symbols, period, start, end)
     )
-    data.get_market_data_ex = lambda fields, symbols, period, start, end, count, dividend, fill: {
-        symbol: [
-            {
-                "time": 1_704_643_200_000,
-                "open": 10.0,
-                "high": 10.5,
-                "low": 9.8,
-                "close": 10.2,
-                "volume": 1000,
-                "amount": 10200.0,
-                "preClose": 9.9,
-                "suspendFlag": 0,
-            }
-        ]
-        for symbol in symbols
-    }
+
+    def get_market_data_ex(fields, symbols, period, start, end, count, dividend, fill):
+        data.history_calls.append((symbols, period, start, end))
+        return {
+            symbol: [
+                {
+                    "time": 1_704_643_200_000,
+                    "open": 10.0,
+                    "high": 10.5,
+                    "low": 9.8,
+                    "close": 10.2,
+                    "volume": 1000,
+                    "amount": 10200.0,
+                    "preClose": 9.9,
+                    "suspendFlag": 0,
+                }
+            ]
+            for symbol in symbols
+        }
+
+    data.get_market_data_ex = get_market_data_ex
 
     def subscribe_quote(symbol, **kwargs):
         subscription_id = len(data.callbacks) + 1
@@ -233,7 +239,8 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     assert history.bar_count == {"000001.SZ": 1}
     assert history.bars["000001.SZ"][0]["suspendFlag"] == 0
     assert history.bars["000001.SZ"][0]["date"] == 20240108
-    assert bridge._xtdata.download_calls == [(["000001.SZ"], "1d", "20240101", "20240131")]
+    assert bridge._xtdata.download_calls == []
+    assert bridge._xtdata.history_calls == [(["000001.SZ"], "1d", "20240101", "20240131")]
 
     subscription = bridge.subscribe_quotes(["000001.SZ"])
     _, quote_callback = bridge._xtdata.callbacks[1]
@@ -281,6 +288,44 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     bridge.close()
     assert FakeTrader.instances[-1].stopped is True
     assert bridge._xtdata.unsubscribed == [1]
+
+
+def test_history_downloads_only_when_cache_has_no_rows(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
+    import xtquant.xtdata as data
+
+    cached_get = data.get_market_data_ex
+    calls = 0
+
+    def get_market_data_ex(*args):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            data.history_calls.append((args[1], args[2], args[3], args[4]))
+            return {}
+        return cached_get(*args)
+
+    data.get_market_data_ex = get_market_data_ex
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+        )
+    )
+
+    history = bridge.get_history(
+        HistoryRequest(
+            symbols=["510300.SH"],
+            period="1d",
+            start_time="20240101",
+            end_time="20240105",
+        )
+    )
+
+    assert history.bar_count == {"510300.SH": 1}
+    assert data.download_calls == [(["510300.SH"], "1d", "20240101", "20240105")]
+    assert calls == 2
 
 
 def test_xtquant_bridge_does_not_guess_unknown_broker_values(monkeypatch) -> None:

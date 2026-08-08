@@ -323,36 +323,20 @@ class XtQuantBridge:
         data_symbols = [
             f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol for symbol in request.symbols
         ]
-        downloader = getattr(self._xtdata, "download_history_data2", None)
-        if callable(downloader):
-            self._invoke_xtdata(
-                "download_history_data2",
-                data_symbols,
-                request.period,
-                request.start_time,
-                request.end_time,
+        raw = self._get_market_data(request, data_symbols)
+        if not isinstance(raw, dict):
+            raise QMTLinkError(
+                "QMT_MARKET_DATA_FAILED",
+                "get_market_data_ex returned a non-dict result",
+                status_code=502,
             )
-        else:
-            for symbol in data_symbols:
-                self._invoke_xtdata(
-                    "download_history_data",
-                    symbol,
-                    request.period,
-                    request.start_time,
-                    request.end_time,
-                )
 
-        raw = self._invoke_xtdata(
-            "get_market_data_ex",
-            request.fields,
-            data_symbols,
-            request.period,
-            request.start_time,
-            request.end_time,
-            request.count,
-            request.dividend_type,
-            request.fill_data,
-        )
+        missing_symbols = [
+            symbol for symbol in data_symbols if not self._history_rows(raw.get(symbol))
+        ]
+        if missing_symbols:
+            self._download_history(request, missing_symbols)
+            raw = self._get_market_data(request, data_symbols)
         if not isinstance(raw, dict):
             raise QMTLinkError(
                 "QMT_MARKET_DATA_FAILED",
@@ -385,6 +369,39 @@ class XtQuantBridge:
             bars=bars,
             bar_count={symbol: len(rows) for symbol, rows in bars.items()},
         )
+
+    def _get_market_data(self, request: HistoryRequest, symbols: list[str]) -> Any:
+        return self._invoke_xtdata(
+            "get_market_data_ex",
+            request.fields,
+            symbols,
+            request.period,
+            request.start_time,
+            request.end_time,
+            request.count,
+            request.dividend_type,
+            request.fill_data,
+        )
+
+    def _download_history(self, request: HistoryRequest, symbols: list[str]) -> None:
+        downloader = getattr(self._xtdata, "download_history_data2", None)
+        if callable(downloader):
+            self._invoke_xtdata(
+                "download_history_data2",
+                symbols,
+                request.period,
+                request.start_time,
+                request.end_time,
+            )
+            return
+        for symbol in symbols:
+            self._invoke_xtdata(
+                "download_history_data",
+                symbol,
+                request.period,
+                request.start_time,
+                request.end_time,
+            )
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         normalized = list(dict.fromkeys(symbol.strip().upper() for symbol in symbols))
