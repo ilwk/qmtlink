@@ -28,6 +28,8 @@ dependencies = [
 server = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.52.1",
+    "numpy>=1.26.4,<3; sys_platform == 'win32' and python_version < '3.14'",
+    "pandas>=2.2.0,<3; sys_platform == 'win32' and python_version < '3.14'",
     "xtquant==250807.1.2; sys_platform == 'win32' and python_version < '3.14'",
 ]
 
