@@ -141,14 +141,25 @@ with QMTClient() as client:
 
 - Windows/Linux/macOS：`~/.config/qmtlink/config.toml`
 
-配置文件使用扁平的 TOML 格式，不需要添加 `[bridge]` 或 `[client]`。首次执行
-`qmt bridge run` 时，QmtLink 会生成以下最小配置：
+配置文件使用 TOML 分区，分别区分 server 和 client；顶层 `api_key` 由两者共用。首次执行 `qmt bridge run` 时，
+QmtLink 会生成以下配置：
 
 ```toml
 api_key = '自动生成的随机密钥'
+
+[server]
 # Windows 路径请使用单引号，例如：'C:\miniQMT安装目录\userdata_mini'
 qmt_path = ''
 account_id = ''
+# 0.0.0.0 允许局域网访问，请确认防火墙和 API key 已妥善配置。
+host = '0.0.0.0'
+port = 8000
+# 真实交易保护：保持 false；只有明确改为 true 并使用 --live 才允许下单。
+allow_trading = false
+
+[client]
+url = 'http://127.0.0.1:8000'
+timeout = 30.0
 ```
 
 普通股票账户只需填写 `qmt_path` 和 `account_id`。两项都为空时自动使用 Mock 模式，两项
@@ -162,6 +173,7 @@ account_id = ''
 # CLI、SDK 和 bridge 共用的访问密钥，请勿泄露。
 api_key = "自动生成的随机密钥"
 
+[server]
 # miniQMT 配置。
 qmt_path = 'C:\miniQMT安装目录\userdata_mini'
 account_id = "你的资金账号"
@@ -169,35 +181,36 @@ account_type = "STOCK"
 strategy_name = "qmtlink"
 
 # bridge 服务配置。
-host = "127.0.0.1"
+host = "0.0.0.0"
 port = 8000
 allow_trading = false
 
+# 高级 server 配置：不填写时由 QmtLink 自动处理。
+# session_id = 123456
+# idempotency_db = 'C:\Users\你的用户名\AppData\Local\QmtLink\orders.sqlite3'
+
+[client]
 # CLI 和 Python SDK 的 HTTP 客户端配置。
 url = "http://127.0.0.1:8000"
 timeout = 30.0
-
-# 高级配置：不填写时由 QmtLink 自动处理。
-# session_id = 123456
-# idempotency_db = 'C:\Users\你的用户名\AppData\Local\QmtLink\orders.sqlite3'
 ```
 
 ### 字段说明
 
 | 配置项 | 环境变量覆盖 | 默认值 | 说明 |
 |---|---|---|---|
-| `api_key` | `QMTLINK_API_KEY` | 首次运行时自动生成 | 访问账户和交易接口的密钥，CLI、SDK 和 bridge 必须保持一致 |
-| `qmt_path` | `QMTLINK_QMT_PATH` | 空 | miniQMT 的 `userdata_mini` 完整路径，真实模式必填 |
-| `account_id` | `QMTLINK_ACCOUNT_ID` | 空 | miniQMT 资金账号，真实模式必填 |
-| `account_type` | `QMTLINK_ACCOUNT_TYPE` | `STOCK` | 账户类型；普通股票为 `STOCK`，融资融券通常为 `CREDIT` |
-| `strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
-| `host` | `QMTLINK_HOST` | `127.0.0.1` | bridge 监听地址；仅本机使用时不要改为公网地址 |
-| `port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
-| `allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
-| `url` | `QMTLINK_URL` | 根据 `host` 和 `port` 生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
-| `timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
-| `session_id` | `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号；手动设置时应避免与其他实例重复 |
-| `idempotency_db` | `QMTLINK_IDEMPOTENCY_DB` | 用户数据目录 | 保存下单幂等记录的 SQLite 文件路径 |
+| `api_key` | `QMTLINK_API_KEY` | 首次运行时自动生成 | 顶层共享访问密钥，CLI、SDK 和 bridge 必须保持一致 |
+| `server.qmt_path` | `QMTLINK_QMT_PATH` | 空 | miniQMT 的 `userdata_mini` 完整路径，真实模式必填 |
+| `server.account_id` | `QMTLINK_ACCOUNT_ID` | 空 | miniQMT 资金账号，真实模式必填 |
+| `server.account_type` | `QMTLINK_ACCOUNT_TYPE` | `STOCK` | 账户类型；普通股票为 `STOCK`，融资融券通常为 `CREDIT` |
+| `server.strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
+| `server.host` | `QMTLINK_HOST` | `0.0.0.0` | bridge 监听地址；允许局域网访问，请勿直接暴露到公网 |
+| `server.port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
+| `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
+| `client.url` | `QMTLINK_URL` | 根据 server 地址生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
+| `client.timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
+| `server.session_id` | `QMTLINK_SESSION_ID` | 自动生成 | XtQuantTrader 会话编号；手动设置时应避免与其他实例重复 |
+| `server.idempotency_db` | `QMTLINK_IDEMPOTENCY_DB` | 用户数据目录 | 保存下单幂等记录的 SQLite 文件路径 |
 
 Windows 默认幂等数据库位于 `%LOCALAPPDATA%\QmtLink\orders.sqlite3`；Linux/macOS 默认位于
 `~/.local/share/qmtlink/orders.sqlite3`。

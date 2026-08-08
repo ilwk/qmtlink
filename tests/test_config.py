@@ -26,7 +26,7 @@ def test_default_server_settings(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv("QMTLINK_HOST", raising=False)
     monkeypatch.delenv("QMTLINK_PORT", raising=False)
     settings = ServerSettings.from_env()
-    assert settings.host == "127.0.0.1"
+    assert settings.host == "0.0.0.0"
     assert settings.port == 8000
     assert settings.mode == "real"
 
@@ -53,25 +53,37 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
     assert "api_key = '" in first_content.decode()
     assert "qmt_path = ''" in first_content.decode()
     assert "account_id = ''" in first_content.decode()
-    assert set(data) == {"api_key", "qmt_path", "account_id"}
+    assert "host = '0.0.0.0'" in first_content.decode()
+    assert "port = 8000" in first_content.decode()
+    assert "allow_trading = false" in first_content.decode()
+    assert set(data) == {"api_key", "server", "client"}
+    assert data["server"]["allow_trading"] is False
+    assert data["server"]["host"] == "0.0.0.0"
+    assert data["server"]["port"] == 8000
     assert len(data["api_key"]) >= 32
-    assert data["qmt_path"] == ""
-    assert data["account_id"] == ""
+    assert data["server"]["qmt_path"] == ""
+    assert data["server"]["account_id"] == ""
 
     _, created_again = create_default_config(config_path)
     assert created_again is False
     assert path.read_bytes() == first_content
 
 
-def test_settings_are_loaded_from_flat_config(monkeypatch, tmp_path) -> None:
+def test_settings_are_loaded_from_client_and_server_sections(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         """api_key = "secret"
+
+[server]
 host = "0.0.0.0"
 port = 9000
 qmt_path = 'C:\\miniQMT\\userdata_mini'
 account_id = "123456"
 allow_trading = true
+
+[client]
+url = "http://127.0.0.1:9100"
+timeout = 12.5
 """,
         encoding="utf-8",
     )
@@ -89,8 +101,9 @@ allow_trading = true
     client = ClientSettings.from_env(config_path)
     server = ServerSettings.from_env(config_path)
 
-    assert client.base_url == "http://127.0.0.1:9000"
+    assert client.base_url == "http://127.0.0.1:9100"
     assert client.api_key == "secret"
+    assert client.timeout == 12.5
     assert server.host == "0.0.0.0"
     assert server.port == 9000
     assert server.qmt_path == r"C:\miniQMT\userdata_mini"
@@ -100,7 +113,7 @@ allow_trading = true
 
 def test_allow_trading_requires_a_toml_boolean(tmp_path) -> None:
     config_path = tmp_path / "config.toml"
-    config_path.write_text('allow_trading = "false"\n', encoding="utf-8")
+    config_path.write_text('[server]\nallow_trading = "false"\n', encoding="utf-8")
 
     with pytest.raises(QMTLinkError, match="allow_trading must be true or false"):
         ServerSettings.from_env(config_path)

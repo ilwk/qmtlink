@@ -70,8 +70,8 @@ def test_bridge_run_without_account_starts_mock(monkeypatch, tmp_path) -> None:
     assert captured["settings"].mode == "mock"
     assert set(tomllib.loads(config_path.read_text(encoding="utf-8"))) == {
         "api_key",
-        "qmt_path",
-        "account_id",
+        "server",
+        "client",
     }
 
 
@@ -87,8 +87,9 @@ def test_bridge_run_uses_human_output_in_a_terminal(monkeypatch, tmp_path) -> No
     result = runner.invoke(app, ["bridge", "run", "--mock"])
 
     assert result.exit_code == 0
-    assert "QmtLink Bridge 正在启动" in result.stdout
+    assert "QmtLink Bridge 配置已加载" in result.stdout
     assert "模式：mock" in result.stdout
+    assert "监听地址" not in result.stdout
     assert '"ok"' not in result.stdout
 
 
@@ -128,7 +129,8 @@ def test_bridge_mock_starts_with_generated_config(monkeypatch, tmp_path) -> None
 def test_bridge_run_rejects_partially_configured_account(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
-        'api_key = "secret"\nqmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = ""\n',
+        'api_key = "secret"\n\n[server]\n'
+        'qmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = ""\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))
@@ -146,7 +148,8 @@ def test_bridge_run_with_account_starts_real_mode(monkeypatch, tmp_path) -> None
     config_path = tmp_path / "config.toml"
     captured = {}
     config_path.write_text(
-        'api_key = "secret"\nqmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = "123456"\n',
+        'api_key = "secret"\n\n[server]\n'
+        'qmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = "123456"\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))

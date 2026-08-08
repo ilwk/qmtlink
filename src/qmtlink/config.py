@@ -43,12 +43,25 @@ def create_default_config(path: str | Path | None = None) -> tuple[Path, bool]:
     if target.exists():
         return target, False
     api_key = secrets.token_urlsafe(32)
-    content = f'''# QmtLink 配置文件，只需填写下面两个空值。
+    content = f'''# QmtLink 配置文件。
+# 顶层 API key 由 QmtLink 自动生成，client 和 server 共用。
 # Windows 路径请使用单引号，例如：qmt_path = 'C:\\miniQMT安装目录\\userdata_mini'
 # 也可以使用正斜杠，例如：qmt_path = "C:/miniQMT安装目录/userdata_mini"
+
 api_key = '{api_key}'
+
+[server]
+# Bridge 监听地址。0.0.0.0 允许局域网访问，请确认防火墙和 API key 已妥善配置。
+host = '0.0.0.0'
+port = 8000
 qmt_path = ''
 account_id = ''
+# 真实交易保护：保持 false；只有明确改为 true 并使用 --live 才允许下单。
+allow_trading = false
+
+[client]
+url = 'http://127.0.0.1:8000'
+timeout = 30.0
 '''
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -80,6 +93,17 @@ def _optional_int(value: object) -> int | None:
     return None if value is None else int(value)
 
 
+def _config_section(data: dict[str, Any], name: str) -> dict[str, Any]:
+    value = data.get(name, {})
+    if not isinstance(value, dict):
+        raise QMTLinkError(
+            "INVALID_CONFIG",
+            f"config section [{name}] must be a table",
+            status_code=400,
+        )
+    return value
+
+
 def _config_bool(data: dict[str, Any], name: str, default: bool) -> bool:
     value = data.get(name, default)
     if not isinstance(value, bool):
@@ -101,20 +125,24 @@ class ClientSettings:
     def from_env(cls, config_path: str | Path | None = None) -> ClientSettings:
         defaults = cls()
         _, data = load_config(config_path)
-        bridge_host = str(data.get("host", "127.0.0.1"))
+        server = _config_section(data, "server")
+        client = _config_section(data, "client")
+        bridge_host = str(server.get("host", "0.0.0.0"))
         if bridge_host in {"0.0.0.0", "::"}:
             bridge_host = "127.0.0.1"
-        derived_url = f"http://{bridge_host}:{int(data.get('port', 8000))}"
+        derived_url = f"http://{bridge_host}:{int(server.get('port', 8000))}"
         return cls(
-            base_url=os.getenv("QMTLINK_URL", str(data.get("url", derived_url))),
+            base_url=os.getenv("QMTLINK_URL", str(client.get("url", derived_url))),
             api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
-            timeout=float(os.getenv("QMTLINK_TIMEOUT", str(data.get("timeout", defaults.timeout)))),
+            timeout=float(
+                os.getenv("QMTLINK_TIMEOUT", str(client.get("timeout", defaults.timeout)))
+            ),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class ServerSettings:
-    host: str = "127.0.0.1"
+    host: str = "0.0.0.0"
     port: int = 8000
     mode: str = "real"
     api_key: str | None = None
@@ -130,24 +158,29 @@ class ServerSettings:
     def from_env(cls, config_path: str | Path | None = None) -> ServerSettings:
         defaults = cls()
         _, data = load_config(config_path)
-        configured_allow_trading = _config_bool(data, "allow_trading", defaults.allow_trading)
+        server = _config_section(data, "server")
+        configured_allow_trading = _config_bool(
+            server, "allow_trading", defaults.allow_trading
+        )
         return cls(
-            host=os.getenv("QMTLINK_HOST", str(data.get("host", defaults.host))),
-            port=int(os.getenv("QMTLINK_PORT", str(data.get("port", defaults.port)))),
+            host=os.getenv("QMTLINK_HOST", str(server.get("host", defaults.host))),
+            port=int(os.getenv("QMTLINK_PORT", str(server.get("port", defaults.port)))),
             mode=defaults.mode,
             api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
             allow_trading=_env_bool("QMTLINK_ALLOW_TRADING", configured_allow_trading),
-            qmt_path=os.getenv("QMTLINK_QMT_PATH") or data.get("qmt_path") or None,
-            account_id=(os.getenv("QMTLINK_ACCOUNT_ID") or data.get("account_id") or None),
+            qmt_path=os.getenv("QMTLINK_QMT_PATH") or server.get("qmt_path") or None,
+            account_id=(os.getenv("QMTLINK_ACCOUNT_ID") or server.get("account_id") or None),
             account_type=os.getenv(
-                "QMTLINK_ACCOUNT_TYPE", str(data.get("account_type", defaults.account_type))
+                "QMTLINK_ACCOUNT_TYPE", str(server.get("account_type", defaults.account_type))
             ).upper(),
-            session_id=_optional_int(os.getenv("QMTLINK_SESSION_ID", data.get("session_id"))),
+            session_id=_optional_int(
+                os.getenv("QMTLINK_SESSION_ID", server.get("session_id"))
+            ),
             strategy_name=os.getenv(
                 "QMTLINK_STRATEGY_NAME",
-                str(data.get("strategy_name", defaults.strategy_name)),
+                str(server.get("strategy_name", defaults.strategy_name)),
             ),
             idempotency_db=(
-                os.getenv("QMTLINK_IDEMPOTENCY_DB") or data.get("idempotency_db") or None
+                os.getenv("QMTLINK_IDEMPOTENCY_DB") or server.get("idempotency_db") or None
             ),
         )

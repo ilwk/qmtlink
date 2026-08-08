@@ -125,11 +125,9 @@ def bridge_run(
             emit(startup)
         else:
             config_state = "已创建" if created else "已存在"
-            print("QmtLink Bridge 正在启动")
+            print("QmtLink Bridge 配置已加载")
             print(f"  模式：{settings.mode}")
-            print(f"  监听地址：{settings.host}:{settings.port}")
             print(f"  配置文件：{config_path}（{config_state}）")
-            print("  按 Ctrl+C 停止服务")
 
         from qmtlink.server.runner import run_server
 
