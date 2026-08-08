@@ -88,6 +88,7 @@ def bridge_run(
     mock: bool = typer.Option(False, "--mock", help="Run without miniQMT"),
     host: str | None = typer.Option(None, "--host"),
     port: int | None = typer.Option(None, "--port", min=1, max=65535),
+    json_output: bool = typer.Option(False, "--json", help="输出 JSON，便于脚本调用"),
 ) -> None:
     try:
         config_path, created = create_default_config()
@@ -113,15 +114,22 @@ def bridge_run(
             strategy_name=base.strategy_name,
             idempotency_db=base.idempotency_db,
         )
-        emit(
-            {
-                "mode": settings.mode,
-                "host": settings.host,
-                "port": settings.port,
-                "config_path": str(config_path),
-                "config_created": created,
-            }
-        )
+        startup = {
+            "mode": settings.mode,
+            "host": settings.host,
+            "port": settings.port,
+            "config_path": str(config_path),
+            "config_created": created,
+        }
+        if json_output or not sys.stdout.isatty():
+            emit(startup)
+        else:
+            config_state = "已创建" if created else "已存在"
+            print("QmtLink Bridge 正在启动")
+            print(f"  模式：{settings.mode}")
+            print(f"  监听地址：{settings.host}:{settings.port}")
+            print(f"  配置文件：{config_path}（{config_state}）")
+            print("  按 Ctrl+C 停止服务")
 
         from qmtlink.server.runner import run_server
 

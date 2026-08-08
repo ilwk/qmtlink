@@ -44,9 +44,11 @@ def create_default_config(path: str | Path | None = None) -> tuple[Path, bool]:
         return target, False
     api_key = secrets.token_urlsafe(32)
     content = f'''# QmtLink 配置文件，只需填写下面两个空值。
-api_key = "{api_key}"
-qmt_path = ""
-account_id = ""
+# Windows 路径请使用单引号，例如：qmt_path = 'C:\\miniQMT安装目录\\userdata_mini'
+# 也可以使用正斜杠，例如：qmt_path = "C:/miniQMT安装目录/userdata_mini"
+api_key = '{api_key}'
+qmt_path = ''
+account_id = ''
 '''
     try:
         target.parent.mkdir(parents=True, exist_ok=True)

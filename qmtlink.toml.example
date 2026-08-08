@@ -1,4 +1,5 @@
 # `qmt bridge run` 会自动生成此文件，通常无需手动复制。
 api_key = "由-qmtlink-自动生成"
+# Windows 路径请使用单引号，或将反斜杠写成双反斜杠。
 qmt_path = 'C:\miniQMT安装目录\userdata_mini'
 account_id = "你的资金账号"

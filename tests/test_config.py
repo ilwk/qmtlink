@@ -49,6 +49,10 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
     data = tomllib.loads(first_content.decode())
 
     assert created is True
+    assert "Windows 路径请使用单引号" in first_content.decode()
+    assert "api_key = '" in first_content.decode()
+    assert "qmt_path = ''" in first_content.decode()
+    assert "account_id = ''" in first_content.decode()
     assert set(data) == {"api_key", "qmt_path", "account_id"}
     assert len(data["api_key"]) >= 32
     assert data["qmt_path"] == ""

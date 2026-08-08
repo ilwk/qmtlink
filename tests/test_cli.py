@@ -1,5 +1,6 @@
 import subprocess
 import tomllib
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
@@ -72,6 +73,39 @@ def test_bridge_run_without_account_starts_mock(monkeypatch, tmp_path) -> None:
         "qmt_path",
         "account_id",
     }
+
+
+def test_bridge_run_uses_human_output_in_a_terminal(monkeypatch, tmp_path) -> None:
+    config_path = tmp_path / "config.toml"
+    monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))
+    monkeypatch.setattr(
+        "qmtlink.cli.main.sys",
+        SimpleNamespace(stdout=SimpleNamespace(isatty=lambda: True)),
+    )
+    monkeypatch.setattr("qmtlink.server.runner.run_server", lambda settings: None)
+
+    result = runner.invoke(app, ["bridge", "run", "--mock"])
+
+    assert result.exit_code == 0
+    assert "QmtLink Bridge 正在启动" in result.stdout
+    assert "模式：mock" in result.stdout
+    assert '"ok"' not in result.stdout
+
+
+def test_bridge_run_json_output_can_be_forced(monkeypatch, tmp_path) -> None:
+    config_path = tmp_path / "config.toml"
+    monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))
+    monkeypatch.setattr(
+        "qmtlink.cli.main.sys",
+        SimpleNamespace(stdout=SimpleNamespace(isatty=lambda: True)),
+    )
+    monkeypatch.setattr("qmtlink.server.runner.run_server", lambda settings: None)
+
+    result = runner.invoke(app, ["bridge", "run", "--mock", "--json"])
+
+    assert result.exit_code == 0
+    assert '"ok": true' in result.stdout
+    assert '"mode": "mock"' in result.stdout
 
 
 def test_bridge_mock_starts_with_generated_config(monkeypatch, tmp_path) -> None:

@@ -54,6 +54,9 @@ uv add qmtlink
 qmt bridge run
 ```
 
+在终端中会显示易读的启动摘要；如果需要供脚本解析 JSON，可使用 `qmt bridge run --json`，
+或将输出重定向到其他程序。
+
 在另一个终端执行：
 
 ```bash
@@ -66,8 +69,8 @@ qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
 ```
 
 第一次运行时会自动生成配置文件和随机 API 密钥。也可以使用
-`qmt bridge run --mock` 强制进入 Mock 模式。所有命令默认输出 JSON，`qmtlink` 也可以
-作为 `qmt` 的备用命令。
+`qmt bridge run --mock` 强制进入 Mock 模式。除 `bridge run` 在终端显示启动摘要外，其余命令
+默认输出 JSON；`qmtlink` 也可以作为 `qmt` 的备用命令。
 
 ## 连接 Windows miniQMT
 
@@ -142,9 +145,10 @@ with QMTClient() as client:
 `qmt bridge run` 时，QmtLink 会生成以下最小配置：
 
 ```toml
-api_key = "自动生成的随机密钥"
-qmt_path = ""
-account_id = ""
+api_key = '自动生成的随机密钥'
+# Windows 路径请使用单引号，例如：'C:\miniQMT安装目录\userdata_mini'
+qmt_path = ''
+account_id = ''
 ```
 
 普通股票账户只需填写 `qmt_path` 和 `account_id`。两项都为空时自动使用 Mock 模式，两项
