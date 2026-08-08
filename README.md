@@ -137,8 +137,8 @@ with QMTClient() as client:
 历史行情接口为 `POST /api/v1/market/history`。默认返回 xtdata 的全部原始字段，数据按
 `bars[symbol]` 分组；常用字段包括 `time`、`open`、`high`、`low`、`close`、`volume`、
 `amount`、`preClose` 和 `suspendFlag`。请求默认会先调用 xtdata 补充本地历史数据；如果只
-读取已经下载的数据，可设置 `download=false`。`fill_data` 默认关闭，避免把停牌期间填充
-的数据误当成真实成交；复权方式必须由回测明确选择，默认是不复权。日线还会提供
+数据由 xtdata 自动检查/补充本地缓存。`fill_data` 默认关闭，避免把停牌期间填充的数据
+误当成真实成交；复权方式必须由回测明确选择，默认是不复权。日线还会提供
 AKQuant 直接可用的 `date`（`YYYYMMDD` 整数）字段；`time` 原始时间戳仍会保留。
 
 历史查询接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回时保留请求中的

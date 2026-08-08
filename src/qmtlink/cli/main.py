@@ -229,7 +229,6 @@ def market_history(
     count: Annotated[int, typer.Option("--count", min=-1)] = -1,
     dividend_type: Annotated[str, typer.Option("--dividend-type")] = "none",
     fill_data: Annotated[bool, typer.Option("--fill-data/--no-fill-data")] = False,
-    download: Annotated[bool, typer.Option("--download/--no-download")] = True,
     fields: Annotated[
         list[str] | None, typer.Option("--field", help="Repeat to request raw fields")
     ] = None,
@@ -244,7 +243,6 @@ def market_history(
             count=count,
             dividend_type=dividend_type,
             fill_data=fill_data,
-            download=download,
             fields=fields or [],
         )
         with _client() as client:

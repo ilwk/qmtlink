@@ -323,25 +323,24 @@ class XtQuantBridge:
         data_symbols = [
             f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol for symbol in request.symbols
         ]
-        if request.download:
-            downloader = getattr(self._xtdata, "download_history_data2", None)
-            if callable(downloader):
+        downloader = getattr(self._xtdata, "download_history_data2", None)
+        if callable(downloader):
+            self._invoke_xtdata(
+                "download_history_data2",
+                data_symbols,
+                request.period,
+                request.start_time,
+                request.end_time,
+            )
+        else:
+            for symbol in data_symbols:
                 self._invoke_xtdata(
-                    "download_history_data2",
-                    data_symbols,
+                    "download_history_data",
+                    symbol,
                     request.period,
                     request.start_time,
                     request.end_time,
                 )
-            else:
-                for symbol in data_symbols:
-                    self._invoke_xtdata(
-                        "download_history_data",
-                        symbol,
-                        request.period,
-                        request.start_time,
-                        request.end_time,
-                    )
 
         raw = self._invoke_xtdata(
             "get_market_data_ex",
