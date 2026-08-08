@@ -128,7 +128,6 @@ class MockBridge:
             bar_count={symbol: len(rows) for symbol, rows in bars.items()},
         )
 
-
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         cursor = self._events.cursor
         quotes = self.get_quotes(symbols)
@@ -209,9 +208,7 @@ class MockBridge:
             traded_price=0.0,
             status="accepted",
         )
-        self._events.publish(
-            "order", self._orders[result.order_id].model_dump(mode="json")
-        )
+        self._events.publish("order", self._orders[result.order_id].model_dump(mode="json"))
         self._idempotency.complete(result)
         return result
 

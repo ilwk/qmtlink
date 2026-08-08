@@ -136,9 +136,7 @@ class ServerSettings:
         defaults = cls()
         _, data = load_config(config_path)
         server = _config_section(data, "server")
-        configured_allow_trading = _config_bool(
-            server, "allow_trading", defaults.allow_trading
-        )
+        configured_allow_trading = _config_bool(server, "allow_trading", defaults.allow_trading)
         return cls(
             host=os.getenv("QMTLINK_HOST", str(server.get("host", defaults.host))),
             port=int(os.getenv("QMTLINK_PORT", str(server.get("port", defaults.port)))),

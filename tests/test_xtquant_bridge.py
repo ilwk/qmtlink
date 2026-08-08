@@ -237,16 +237,8 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
 
     subscription = bridge.subscribe_quotes(["000001.SZ"])
     _, quote_callback = bridge._xtdata.callbacks[1]
-    quote_callback(
-        {
-            "000001.SZ": [
-                {"lastPrice": 10.6, "volume": 1100, "time": 1_786_000_001_000}
-            ]
-        }
-    )
-    quote_batch = bridge.poll_events(
-        after_sequence=subscription.cursor, timeout=0
-    )
+    quote_callback({"000001.SZ": [{"lastPrice": 10.6, "volume": 1100, "time": 1_786_000_001_000}]})
+    quote_batch = bridge.poll_events(after_sequence=subscription.cursor, timeout=0)
     assert quote_batch.events[-1].payload["last_price"] == 10.6
 
     bridge._callback.on_stock_order(FakeTrader._order(bridge._account, 123))
@@ -257,9 +249,7 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     bridge._callback.on_cancel_error(
         SimpleNamespace(order_id=123, error_id=43, error_msg="not cancelable")
     )
-    broker_events = bridge.poll_events(
-        after_sequence=quote_batch.next_sequence, timeout=0
-    )
+    broker_events = bridge.poll_events(after_sequence=quote_batch.next_sequence, timeout=0)
     assert [event.event_type for event in broker_events.events] == [
         "order",
         "trade",

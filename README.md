@@ -117,13 +117,15 @@ from qmtlink.models import HistoryRequest
 
 with QMTClient() as client:
     print(client.health())
-    history = client.get_history(HistoryRequest(
-        symbols=["000001.SZ"],
-        period="1d",
-        start_time="20200101",
-        end_time="20241231",
-        dividend_type="front_ratio",
-    ))
+    history = client.get_history(
+        HistoryRequest(
+            symbols=["000001.SZ"],
+            period="1d",
+            start_time="20200101",
+            end_time="20241231",
+            dividend_type="front_ratio",
+        )
+    )
     print(history.bars["000001.SZ"])
     subscription = client.subscribe_quotes(["000001.SZ"])
     events = client.poll_events(after_sequence=subscription.cursor, timeout=20)

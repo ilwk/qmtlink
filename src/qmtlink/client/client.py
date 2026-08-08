@@ -82,11 +82,10 @@ class QMTClient:
         )["data"]
         return HistoricalData.model_validate(data)
 
-
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
-        data = self._request(
-            "POST", "/api/v1/market/subscriptions", json={"symbols": symbols}
-        )["data"]
+        data = self._request("POST", "/api/v1/market/subscriptions", json={"symbols": symbols})[
+            "data"
+        ]
         return QuoteSubscription.model_validate(data)
 
     def poll_events(

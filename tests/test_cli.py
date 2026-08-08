@@ -138,7 +138,7 @@ def test_bridge_run_rejects_partially_configured_account(monkeypatch, tmp_path) 
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         'api_key = "secret"\n\n[server]\n'
-        'qmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = ""\n',
+        "qmt_path = 'C:\\miniQMT\\userdata_mini'\naccount_id = \"\"\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))
@@ -157,7 +157,7 @@ def test_bridge_run_with_account_starts_real_mode(monkeypatch, tmp_path) -> None
     captured = {}
     config_path.write_text(
         'api_key = "secret"\n\n[server]\n'
-        'qmt_path = \'C:\\miniQMT\\userdata_mini\'\naccount_id = "123456"\n',
+        "qmt_path = 'C:\\miniQMT\\userdata_mini'\naccount_id = \"123456\"\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("QMTLINK_CONFIG", str(config_path))

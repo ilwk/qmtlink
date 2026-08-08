@@ -111,7 +111,6 @@ def create_app(
         require_api_key(x_api_key)
         return _success(backend.get_history(payload).model_dump(mode="json"), started)
 
-
     @app.post("/api/v1/market/subscriptions")
     async def subscribe_quotes(
         payload: QuoteRequest,

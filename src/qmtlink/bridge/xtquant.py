@@ -142,9 +142,7 @@ class XtQuantBridge:
                     retryable=True,
                     status_code=503,
                 )
-            self._idempotency = IdempotencyStore(
-                default_idempotency_path()
-            )
+            self._idempotency = IdempotencyStore(default_idempotency_path())
         except Exception:
             self.close()
             raise
@@ -323,8 +321,7 @@ class XtQuantBridge:
 
     def get_history(self, request: HistoryRequest) -> HistoricalData:
         data_symbols = [
-            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol
-            for symbol in request.symbols
+            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol for symbol in request.symbols
         ]
         if request.download:
             downloader = getattr(self._xtdata, "download_history_data2", None)
@@ -373,9 +370,9 @@ class XtQuantBridge:
                         row.setdefault(
                             "date",
                             int(
-                                datetime.fromtimestamp(
-                                    timestamp / 1000, tz=_SHANGHAI_TZ
-                                ).strftime("%Y%m%d")
+                                datetime.fromtimestamp(timestamp / 1000, tz=_SHANGHAI_TZ).strftime(
+                                    "%Y%m%d"
+                                )
                             ),
                         )
             bars[requested_symbol] = rows
@@ -389,7 +386,6 @@ class XtQuantBridge:
             bars=bars,
             bar_count={symbol: len(rows) for symbol, rows in bars.items()},
         )
-
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         normalized = list(dict.fromkeys(symbol.strip().upper() for symbol in symbols))
