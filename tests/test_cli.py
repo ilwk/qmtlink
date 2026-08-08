@@ -1,3 +1,4 @@
+import subprocess
 import tomllib
 
 from typer.testing import CliRunner
@@ -5,6 +6,35 @@ from typer.testing import CliRunner
 from qmtlink.cli.main import app
 
 runner = CliRunner()
+
+
+def test_update_uses_uv_tool_upgrade(monkeypatch) -> None:
+    command = {}
+    monkeypatch.setattr("qmtlink.cli.main.shutil.which", lambda name: "/usr/bin/uv")
+
+    def run(args, **kwargs):
+        command["args"] = args
+        command["kwargs"] = kwargs
+        return subprocess.CompletedProcess(args, 0, stdout="Updated qmtlink", stderr="")
+
+    monkeypatch.setattr("qmtlink.cli.main.subprocess.run", run)
+
+    result = runner.invoke(app, ["update"])
+
+    assert result.exit_code == 0
+    assert command["args"] == ["/usr/bin/uv", "tool", "upgrade", "qmtlink"]
+    assert command["kwargs"] == {"capture_output": True, "text": True, "check": False}
+    assert '"updated": true' in result.stdout
+    assert '"output": "Updated qmtlink"' in result.stdout
+
+
+def test_update_requires_uv(monkeypatch) -> None:
+    monkeypatch.setattr("qmtlink.cli.main.shutil.which", lambda name: None)
+
+    result = runner.invoke(app, ["update"])
+
+    assert result.exit_code == 5
+    assert '"code": "UPDATE_TOOL_NOT_FOUND"' in result.stdout
 
 
 def test_bridge_doctor_outputs_json(monkeypatch, tmp_path) -> None:

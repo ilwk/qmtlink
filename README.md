@@ -28,6 +28,12 @@ QmtLink 对外使用 `buy`、`sell`、`limit` 等可读字段，在 bridge 内�
 uv tool install qmtlink
 ```
 
+安装后可使用下面的命令更新到 PyPI 上的最新版本：
+
+```bash
+qmt update
+```
+
 在 Windows miniQMT 交易机上安装 Bridge：
 
 ```powershell

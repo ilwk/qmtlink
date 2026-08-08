@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import platform
+import shutil
+import subprocess
 import sys
 from typing import Annotated
 
@@ -124,6 +126,42 @@ def bridge_run(
         from qmtlink.server.runner import run_server
 
         run_server(settings)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@app.command("update")
+def update() -> None:
+    """Update the installed QmtLink tool with uv."""
+    try:
+        uv = shutil.which("uv")
+        if uv is None:
+            raise QMTLinkError(
+                "UPDATE_TOOL_NOT_FOUND",
+                "未找到 uv，请先安装 uv 后再执行 qmt update",
+            )
+
+        result = subprocess.run(
+            [uv, "tool", "upgrade", "qmtlink"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            suffix = f": {detail}" if detail else ""
+            raise QMTLinkError(
+                "UPDATE_FAILED",
+                f"更新 qmtlink 失败（退出码 {result.returncode}）{suffix}",
+                retryable=True,
+            )
+        emit(
+            {
+                "package": "qmtlink",
+                "updated": True,
+                "output": (result.stdout or result.stderr).strip(),
+            }
+        )
     except Exception as exc:
         _handle_error(exc)
 
