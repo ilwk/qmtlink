@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import math
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from threading import RLock
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
@@ -28,6 +29,8 @@ from qmtlink.models import (
 
 from .events import EventJournal
 from .idempotency import IdempotencyStore, default_idempotency_path
+
+_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class XtQuantBridge:
@@ -371,7 +374,7 @@ class XtQuantBridge:
                             "date",
                             int(
                                 datetime.fromtimestamp(
-                                    timestamp / 1000, tz=UTC
+                                    timestamp / 1000, tz=_SHANGHAI_TZ
                                 ).strftime("%Y%m%d")
                             ),
                         )

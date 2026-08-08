@@ -156,7 +156,7 @@ def install_fake_xtquant(monkeypatch) -> None:
     data.get_market_data_ex = lambda fields, symbols, period, start, end, count, dividend, fill: {
         symbol: [
             {
-                "time": 1_786_000_000_000,
+                "time": 1_704_643_200_000,
                 "open": 10.0,
                 "high": 10.5,
                 "low": 9.8,
@@ -232,7 +232,7 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     )
     assert history.bar_count == {"000001.SZ": 1}
     assert history.bars["000001.SZ"][0]["suspendFlag"] == 0
-    assert history.bars["000001.SZ"][0]["date"] == 20260806
+    assert history.bars["000001.SZ"][0]["date"] == 20240108
     assert bridge._xtdata.download_calls == [(["000001.SZ"], "1d", "20240101", "20240131")]
 
     subscription = bridge.subscribe_quotes(["000001.SZ"])
