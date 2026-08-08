@@ -32,7 +32,13 @@ def test_update_uses_uv_tool_upgrade(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert command["args"] == ["/usr/bin/uv", "tool", "upgrade", "qmtlink"]
-    assert command["kwargs"] == {"capture_output": True, "text": True, "check": False}
+    assert command["kwargs"] == {
+        "capture_output": True,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+        "check": False,
+    }
     assert '"updated": true' in result.stdout
     assert '"output": "Updated qmtlink"' in result.stdout
 
