@@ -367,15 +367,23 @@ class XtQuantBridge:
             if request.period == "1d":
                 for row in rows:
                     timestamp = row.get("time")
-                    if isinstance(timestamp, (int, float)) and timestamp > 100_000_000_000:
-                        row.setdefault(
-                            "date",
-                            int(
-                                datetime.fromtimestamp(timestamp / 1000, tz=_SHANGHAI_TZ).strftime(
-                                    "%Y%m%d"
+                    if "date" not in row:
+                        date_value: int | None = None
+                        if isinstance(timestamp, str):
+                            normalized = timestamp.strip()
+                            if len(normalized) == 8 and normalized.isdigit():
+                                date_value = int(normalized)
+                        elif isinstance(timestamp, (int, float)):
+                            if 10_000_000 <= timestamp <= 99_999_999:
+                                date_value = int(timestamp)
+                            elif timestamp > 100_000_000_000:
+                                date_value = int(
+                                    datetime.fromtimestamp(
+                                        timestamp / 1000, tz=_SHANGHAI_TZ
+                                    ).strftime("%Y%m%d")
                                 )
-                            ),
-                        )
+                        if date_value is not None:
+                            row["date"] = date_value
             bars[requested_symbol] = rows
         return HistoricalData(
             period=request.period,

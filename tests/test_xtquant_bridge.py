@@ -395,6 +395,41 @@ def test_history_downloads_only_when_cache_has_no_rows(monkeypatch) -> None:
     assert calls == 2
 
 
+def test_daily_history_converts_yyyymmdd_time_to_date(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
+    import xtquant.xtdata as data
+
+    data.get_market_data_ex = lambda fields, symbols, period, start, end, count, dividend, fill: {
+        symbol: [{
+            "time": "20240108",
+            "open": 10.0,
+            "high": 10.5,
+            "low": 9.8,
+            "close": 10.2,
+            "volume": 1000,
+        }]
+        for symbol in symbols
+    }
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+        )
+    )
+
+    history = bridge.get_history(
+        HistoryRequest(
+            symbols=["000001.SZ"],
+            period="1d",
+            start_time="20240101",
+            end_time="20240131",
+        )
+    )
+
+    assert history.bars["000001.SZ"][0]["date"] == 20240108
+
+
 def test_xtquant_bridge_does_not_guess_unknown_broker_values(monkeypatch) -> None:
     install_fake_xtquant(monkeypatch)
     monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
