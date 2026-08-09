@@ -50,6 +50,57 @@ async def test_history_requires_api_key_and_returns_raw_backtest_fields() -> Non
 
 
 @pytest.mark.asyncio
+async def test_research_data_endpoints_require_api_key_and_return_mock_data() -> None:
+    headers = {"X-API-Key": "test-secret"}
+    async with make_client() as client:
+        unauthorized = await client.post(
+            "/api/v1/market/financial",
+            json={"symbols": ["000001.SZ"], "tables": ["PershareIndex"]},
+        )
+        instruments = await client.post(
+            "/api/v1/market/instruments",
+            headers=headers,
+            json={"symbols": ["000001.SZ"]},
+        )
+        financial = await client.post(
+            "/api/v1/market/financial",
+            headers=headers,
+            json={"symbols": ["000001.SZ"], "tables": ["PershareIndex"]},
+        )
+        dividends = await client.post(
+            "/api/v1/market/dividends",
+            headers=headers,
+            json={"symbols": ["000001.SZ"]},
+        )
+        historical_st = await client.post(
+            "/api/v1/market/historical-st",
+            headers=headers,
+            json={"symbols": ["000001.SZ"]},
+        )
+        sectors = await client.post(
+            "/api/v1/market/sectors",
+            headers=headers,
+            json={"sector": "沪深A股"},
+        )
+    assert unauthorized.status_code == 401
+    assert instruments.status_code == 200
+    assert instruments.json()["data"]["instruments"]["000001.SZ"]["OpenDate"] == 20200101
+    assert financial.status_code == 200
+    assert (
+        financial.json()["data"]["financial"]["000001.SZ"]["PershareIndex"][0][
+            "du_return_on_equity"
+        ]
+        == 8.0
+    )
+    assert dividends.status_code == 200
+    assert dividends.json()["data"]["factors"]["000001.SZ"][0]["cash_dividend"] == 0.1
+    assert historical_st.status_code == 200
+    assert historical_st.json()["data"]["statuses"]["000001.SZ"] == {}
+    assert sectors.status_code == 200
+    assert "688001.SH" in sectors.json()["data"]["symbols"]
+
+
+@pytest.mark.asyncio
 async def test_subscribe_and_poll_quote_events() -> None:
     headers = {"X-API-Key": "test-secret"}
     async with make_client() as client:

@@ -9,9 +9,16 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    DividendData,
+    DividendRequest,
     EventBatch,
+    FinancialData,
+    FinancialRequest,
     HistoricalData,
+    HistoricalSTData,
     HistoryRequest,
+    InstrumentData,
+    InstrumentRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -19,6 +26,8 @@ from qmtlink.models import (
     Position,
     Quote,
     QuoteSubscription,
+    SectorData,
+    SectorRequest,
     TradeRecord,
 )
 
@@ -81,6 +90,36 @@ class QMTClient:
             "POST", "/api/v1/market/history", json=request.model_dump(mode="json")
         )["data"]
         return HistoricalData.model_validate(data)
+
+    def get_instruments(self, request: InstrumentRequest) -> InstrumentData:
+        data = self._request(
+            "POST", "/api/v1/market/instruments", json=request.model_dump(mode="json")
+        )["data"]
+        return InstrumentData.model_validate(data)
+
+    def get_financial(self, request: FinancialRequest) -> FinancialData:
+        data = self._request(
+            "POST", "/api/v1/market/financial", json=request.model_dump(mode="json")
+        )["data"]
+        return FinancialData.model_validate(data)
+
+    def get_dividends(self, request: DividendRequest) -> DividendData:
+        data = self._request(
+            "POST", "/api/v1/market/dividends", json=request.model_dump(mode="json")
+        )["data"]
+        return DividendData.model_validate(data)
+
+    def get_historical_st(self, request: InstrumentRequest) -> HistoricalSTData:
+        data = self._request(
+            "POST", "/api/v1/market/historical-st", json=request.model_dump(mode="json")
+        )["data"]
+        return HistoricalSTData.model_validate(data)
+
+    def get_sector_symbols(self, request: SectorRequest) -> SectorData:
+        data = self._request(
+            "POST", "/api/v1/market/sectors", json=request.model_dump(mode="json")
+        )["data"]
+        return SectorData.model_validate(data)
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
         data = self._request("POST", "/api/v1/market/subscriptions", json={"symbols": symbols})[

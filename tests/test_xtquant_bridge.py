@@ -6,7 +6,14 @@ import pytest
 from qmtlink.bridge.xtquant import XtQuantBridge
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import HistoryRequest, OrderRequest
+from qmtlink.models import (
+    DividendRequest,
+    FinancialRequest,
+    HistoryRequest,
+    InstrumentRequest,
+    OrderRequest,
+    SectorRequest,
+)
 
 
 class FakeCallback:
@@ -175,6 +182,38 @@ def install_fake_xtquant(monkeypatch) -> None:
         }
 
     data.get_market_data_ex = get_market_data_ex
+    data.get_instrument_detail = lambda symbol: {
+        "ExchangeID": symbol.rsplit(".", 1)[-1],
+        "InstrumentID": symbol.split(".", 1)[0],
+        "OpenDate": 19910403,
+        "ExpireDate": 99999999,
+        "UpStopPrice": 12.12,
+        "DownStopPrice": 9.92,
+        "FloatVolume": 1_000_000.0,
+        "TotalVolume": 2_000_000.0,
+        "InstrumentStatus": 0,
+        "IsTrading": True,
+    }
+    data.get_financial_data = lambda symbols, tables, start, end, report_type: {
+        symbol: {
+            table: [
+                {
+                    "m_timetag": 20231231,
+                    "m_anntime": 20240430,
+                    "du_return_on_equity": 9.0,
+                    "inc_revenue_rate": 8.0,
+                    "du_profit_rate": 11.0,
+                }
+            ]
+            for table in tables
+        }
+        for symbol in symbols
+    }
+    data.get_divid_factors = lambda symbol, start, end: [
+        {"time": 20230630, "cash_dividend": 0.2}
+    ]
+    data.get_his_st_data = lambda symbol: {"ST": [["20200101", "20210101"]]}
+    data.get_stock_list_in_sector = lambda sector: ["000001.SZ", "688001.SH"]
 
     def subscribe_quote(symbol, **kwargs):
         subscription_id = len(data.callbacks) + 1
@@ -288,6 +327,34 @@ def test_xtquant_bridge_lifecycle_queries_and_orders(monkeypatch) -> None:
     bridge.close()
     assert FakeTrader.instances[-1].stopped is True
     assert bridge._xtdata.unsubscribed == [1]
+
+
+def test_xtquant_bridge_exposes_research_data(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+        )
+    )
+
+    instrument = bridge.get_instruments(InstrumentRequest(symbols=["600000.SS"]))
+    financial = bridge.get_financial(
+        FinancialRequest(symbols=["600000.SS"], tables=["PershareIndex"])
+    )
+    dividends = bridge.get_dividends(DividendRequest(symbols=["600000.SS"]))
+    historical_st = bridge.get_historical_st(InstrumentRequest(symbols=["600000.SS"]))
+    sectors = bridge.get_sector_symbols(SectorRequest(sector="沪深A股"))
+
+    assert instrument.instruments["600000.SS"]["OpenDate"] == 19910403
+    assert financial.financial["600000.SS"]["PershareIndex"][0][
+        "du_return_on_equity"
+    ] == 9.0
+    assert dividends.factors["600000.SS"][0]["cash_dividend"] == 0.2
+    assert historical_st.statuses["600000.SS"]["ST"] == [["20200101", "20210101"]]
+    assert sectors.symbols == ["000001.SZ", "688001.SH"]
+    bridge.close()
 
 
 def test_history_downloads_only_when_cache_has_no_rows(monkeypatch) -> None:

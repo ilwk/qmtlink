@@ -5,9 +5,16 @@ from typing import Protocol
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    DividendData,
+    DividendRequest,
     EventBatch,
+    FinancialData,
+    FinancialRequest,
     HistoricalData,
+    HistoricalSTData,
     HistoryRequest,
+    InstrumentData,
+    InstrumentRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -15,6 +22,8 @@ from qmtlink.models import (
     Position,
     Quote,
     QuoteSubscription,
+    SectorData,
+    SectorRequest,
     TradeRecord,
 )
 
@@ -29,6 +38,16 @@ class Bridge(Protocol):
     def get_quotes(self, symbols: list[str]) -> list[Quote]: ...
 
     def get_history(self, request: HistoryRequest) -> HistoricalData: ...
+
+    def get_instruments(self, request: InstrumentRequest) -> InstrumentData: ...
+
+    def get_financial(self, request: FinancialRequest) -> FinancialData: ...
+
+    def get_dividends(self, request: DividendRequest) -> DividendData: ...
+
+    def get_historical_st(self, request: InstrumentRequest) -> HistoricalSTData: ...
+
+    def get_sector_symbols(self, request: SectorRequest) -> SectorData: ...
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription: ...
 

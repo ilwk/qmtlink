@@ -13,7 +13,16 @@ from qmtlink import __version__
 from qmtlink.bridge import Bridge, create_bridge
 from qmtlink.config import ServerSettings
 from qmtlink.errors import QMTLinkError
-from qmtlink.models import CancelRequest, HistoryRequest, OrderRequest, QuoteRequest
+from qmtlink.models import (
+    CancelRequest,
+    DividendRequest,
+    FinancialRequest,
+    HistoryRequest,
+    InstrumentRequest,
+    OrderRequest,
+    QuoteRequest,
+    SectorRequest,
+)
 
 
 def _success(data: object, started: float) -> dict[str, object]:
@@ -110,6 +119,51 @@ def create_app(
         started = time.perf_counter()
         require_api_key(x_api_key)
         return _success(backend.get_history(payload).model_dump(mode="json"), started)
+
+    @app.post("/api/v1/market/instruments")
+    async def instruments(
+        payload: InstrumentRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_instruments(payload).model_dump(mode="json"), started)
+
+    @app.post("/api/v1/market/financial")
+    async def financial(
+        payload: FinancialRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_financial(payload).model_dump(mode="json"), started)
+
+    @app.post("/api/v1/market/dividends")
+    async def dividends(
+        payload: DividendRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_dividends(payload).model_dump(mode="json"), started)
+
+    @app.post("/api/v1/market/historical-st")
+    async def historical_st(
+        payload: InstrumentRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_historical_st(payload).model_dump(mode="json"), started)
+
+    @app.post("/api/v1/market/sectors")
+    async def sectors(
+        payload: SectorRequest,
+        x_api_key: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        require_api_key(x_api_key)
+        return _success(backend.get_sector_symbols(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/subscriptions")
     async def subscribe_quotes(

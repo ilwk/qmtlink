@@ -1,6 +1,20 @@
 from .account import AccountAsset, OrderRecord, Position, TradeRecord
 from .event import BridgeEvent, EventBatch, QuoteSubscription
-from .market import HistoricalData, HistoryRequest, Quote, QuoteRequest
+from .market import (
+    DividendData,
+    DividendRequest,
+    FinancialData,
+    FinancialRequest,
+    HistoricalData,
+    HistoricalSTData,
+    HistoryRequest,
+    InstrumentData,
+    InstrumentRequest,
+    Quote,
+    QuoteRequest,
+    SectorData,
+    SectorRequest,
+)
 from .order import (
     CancelRequest,
     CancelResult,
@@ -16,9 +30,16 @@ __all__ = [
     "BridgeEvent",
     "CancelRequest",
     "CancelResult",
+    "DividendData",
+    "DividendRequest",
     "EventBatch",
+    "FinancialData",
+    "FinancialRequest",
     "HistoricalData",
+    "HistoricalSTData",
     "HistoryRequest",
+    "InstrumentData",
+    "InstrumentRequest",
     "OrderPreview",
     "OrderRecord",
     "OrderRequest",
@@ -28,6 +49,8 @@ __all__ = [
     "Position",
     "Quote",
     "QuoteRequest",
+    "SectorData",
+    "SectorRequest",
     "QuoteSubscription",
     "TradeRecord",
 ]

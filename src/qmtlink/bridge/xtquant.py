@@ -12,9 +12,16 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    DividendData,
+    DividendRequest,
     EventBatch,
+    FinancialData,
+    FinancialRequest,
     HistoricalData,
+    HistoricalSTData,
     HistoryRequest,
+    InstrumentData,
+    InstrumentRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -24,6 +31,8 @@ from qmtlink.models import (
     Position,
     Quote,
     QuoteSubscription,
+    SectorData,
+    SectorRequest,
     TradeRecord,
 )
 
@@ -190,6 +199,11 @@ class XtQuantBridge:
             "cancel_orders": True,
             "supported_order_types": [OrderType.LIMIT.value],
             "historical_data": True,
+            "instrument_details": True,
+            "financial_data": True,
+            "dividend_data": True,
+            "historical_st_data": True,
+            "historical_limit_prices": True,
             "supported_periods": [
                 "tick",
                 "1m",
@@ -263,6 +277,10 @@ class XtQuantBridge:
     def _json_value(value: Any) -> Any:
         if value is None or isinstance(value, (str, int, bool)):
             return value
+        if isinstance(value, dict):
+            return {str(key): XtQuantBridge._json_value(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [XtQuantBridge._json_value(item) for item in value]
         if isinstance(value, float):
             return None if math.isnan(value) else value
         item = getattr(value, "item", None)
@@ -368,6 +386,127 @@ class XtQuantBridge:
             fill_data=request.fill_data,
             bars=bars,
             bar_count={symbol: len(rows) for symbol, rows in bars.items()},
+        )
+
+    def get_instruments(self, request: InstrumentRequest) -> InstrumentData:
+        instruments: dict[str, dict[str, Any]] = {}
+        for requested_symbol in request.symbols:
+            data_symbol = (
+                f"{requested_symbol[:-3]}.SH"
+                if requested_symbol.endswith(".SS")
+                else requested_symbol
+            )
+            raw = self._invoke_xtdata("get_instrument_detail", data_symbol)
+            if isinstance(raw, dict):
+                instruments[requested_symbol] = self._json_value(raw)
+        return InstrumentData(instruments=instruments)
+
+    def get_financial(self, request: FinancialRequest) -> FinancialData:
+        data_symbols = [
+            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol
+            for symbol in request.symbols
+        ]
+        raw = self._invoke_xtdata(
+            "get_financial_data",
+            data_symbols,
+            request.tables,
+            request.start_time,
+            request.end_time,
+            request.report_type,
+        )
+        if not isinstance(raw, dict):
+            raise QMTLinkError(
+                "QMT_FINANCIAL_DATA_FAILED",
+                "get_financial_data returned a non-dict result",
+                status_code=502,
+            )
+        missing = [
+            symbol
+            for symbol in data_symbols
+            if not isinstance(raw.get(symbol), dict) or not raw[symbol]
+        ]
+        if missing:
+            downloader = getattr(self._xtdata, "download_financial_data2", None)
+            if callable(downloader):
+                self._invoke_xtdata(
+                    "download_financial_data2",
+                    missing,
+                    request.tables,
+                    request.start_time,
+                    request.end_time,
+                )
+            else:
+                self._invoke_xtdata("download_financial_data", missing, request.tables)
+            raw = self._invoke_xtdata(
+                "get_financial_data",
+                data_symbols,
+                request.tables,
+                request.start_time,
+                request.end_time,
+                request.report_type,
+            )
+        financial: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        for requested_symbol, data_symbol in zip(request.symbols, data_symbols, strict=True):
+            tables = raw.get(data_symbol, {})
+            if not isinstance(tables, dict):
+                continue
+            financial[requested_symbol] = {
+                str(table): self._history_rows(frame)
+                for table, frame in tables.items()
+                if self._history_rows(frame)
+            }
+        return FinancialData(
+            start_time=request.start_time,
+            end_time=request.end_time,
+            report_type=request.report_type,
+            financial=financial,
+        )
+
+    def get_dividends(self, request: DividendRequest) -> DividendData:
+        factors: dict[str, list[dict[str, Any]]] = {}
+        for requested_symbol in request.symbols:
+            data_symbol = (
+                f"{requested_symbol[:-3]}.SH"
+                if requested_symbol.endswith(".SS")
+                else requested_symbol
+            )
+            raw = self._invoke_xtdata(
+                "get_divid_factors",
+                data_symbol,
+                request.start_time,
+                request.end_time,
+            )
+            factors[requested_symbol] = self._history_rows(raw)
+        return DividendData(
+            start_time=request.start_time,
+            end_time=request.end_time,
+            factors=factors,
+        )
+
+    def get_historical_st(self, request: InstrumentRequest) -> HistoricalSTData:
+        statuses: dict[str, dict[str, Any]] = {}
+        for requested_symbol in request.symbols:
+            data_symbol = (
+                f"{requested_symbol[:-3]}.SH"
+                if requested_symbol.endswith(".SS")
+                else requested_symbol
+            )
+            raw = self._invoke_xtdata("get_his_st_data", data_symbol)
+            if isinstance(raw, dict):
+                statuses[requested_symbol] = self._json_value(raw)
+        return HistoricalSTData(statuses=statuses)
+
+    def get_sector_symbols(self, request: SectorRequest) -> SectorData:
+        raw = self._invoke_xtdata("get_stock_list_in_sector", request.sector)
+        if not isinstance(raw, (list, tuple)):
+            raise QMTLinkError(
+                "QMT_SECTOR_DATA_FAILED",
+                "get_stock_list_in_sector returned a non-list result",
+                status_code=502,
+            )
+        return SectorData(
+            sector=request.sector,
+            symbols=[str(symbol).strip().upper() for symbol in raw if str(symbol).strip()],
         )
 
     def _get_market_data(self, request: HistoryRequest, symbols: list[str]) -> Any:

@@ -144,6 +144,18 @@ AKQuant 直接可用的 `date`（`YYYYMMDD` 整数）字段；`time` 原始时�
 历史查询接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回时保留请求中的
 代码形式。
 
+只读研究数据接口：
+
+- `POST /api/v1/market/instruments`：上市日期、退市日期、股本、交易状态和当前涨跌停价等合约信息；
+- `POST /api/v1/market/financial`：`Balance`、`Income`、`CashFlow`、`PershareIndex`、`Capital` 等财务表，支持 `report_type = "announce_time"`；
+- `POST /api/v1/market/dividends`：`xtdata.get_divid_factors` 除权除息数据；
+- `POST /api/v1/market/historical-st`：历史 ST、*ST、PT 区间。
+- `POST /api/v1/market/sectors`：读取 miniQMT 当前板块成分股列表。
+
+这些接口只转发 miniQMT/xtdata 已有数据，不把当前值伪装成历史值。财务回测应使用
+`announce_time`，历史涨跌停价使用历史行情的 `stoppricedata` 周期；部分数据取决于
+miniQMT 本地缓存和账号权限。
+
 历史数据请求按闭区间时间范围返回；长周期分钟数据建议按日期分段请求，避免单个 JSON
 响应过大。交易日历、合约信息和除权因子暂由 AKQuant/上层数据源负责，不在 QmtLink 中
 重复建模。

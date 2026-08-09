@@ -20,6 +20,7 @@ HistoryPeriod = Literal[
     "stoppricedata",
 ]
 DividendType = Literal["none", "front", "back", "front_ratio", "back_ratio"]
+FinancialReportType = Literal["report_time", "announce_time"]
 
 
 class QuoteRequest(BaseModel):
@@ -79,3 +80,80 @@ class HistoricalData(BaseModel):
     fill_data: bool
     bars: dict[str, list[dict[str, Any]]]
     bar_count: dict[str, int]
+
+
+class InstrumentRequest(BaseModel):
+    symbols: list[str] = Field(min_length=1, max_length=500)
+
+    @field_validator("symbols")
+    @classmethod
+    def normalize_symbols(cls, symbols: list[str]) -> list[str]:
+        normalized = [symbol.strip().upper() for symbol in symbols if symbol.strip()]
+        if not normalized:
+            raise ValueError("at least one symbol is required")
+        return list(dict.fromkeys(normalized))
+
+
+class InstrumentData(BaseModel):
+    instruments: dict[str, dict[str, Any]]
+
+
+class FinancialRequest(BaseModel):
+    symbols: list[str] = Field(min_length=1, max_length=200)
+    tables: list[str] = Field(default_factory=list, max_length=20)
+    start_time: str = ""
+    end_time: str = ""
+    report_type: FinancialReportType = "announce_time"
+
+    @field_validator("symbols")
+    @classmethod
+    def normalize_symbols(cls, symbols: list[str]) -> list[str]:
+        normalized = [symbol.strip().upper() for symbol in symbols if symbol.strip()]
+        if not normalized:
+            raise ValueError("at least one symbol is required")
+        return list(dict.fromkeys(normalized))
+
+    @field_validator("tables")
+    @classmethod
+    def normalize_tables(cls, tables: list[str]) -> list[str]:
+        return list(dict.fromkeys(table.strip() for table in tables if table.strip()))
+
+
+class FinancialData(BaseModel):
+    start_time: str
+    end_time: str
+    report_type: str
+    financial: dict[str, dict[str, list[dict[str, Any]]]]
+
+
+class DividendRequest(BaseModel):
+    symbols: list[str] = Field(min_length=1, max_length=500)
+    start_time: str = ""
+    end_time: str = ""
+
+    @field_validator("symbols")
+    @classmethod
+    def normalize_symbols(cls, symbols: list[str]) -> list[str]:
+        normalized = [symbol.strip().upper() for symbol in symbols if symbol.strip()]
+        if not normalized:
+            raise ValueError("at least one symbol is required")
+        return list(dict.fromkeys(normalized))
+
+
+class DividendData(BaseModel):
+    start_time: str
+    end_time: str
+    factors: dict[str, list[dict[str, Any]]]
+
+
+class HistoricalSTData(BaseModel):
+    statuses: dict[str, dict[str, Any]]
+
+
+class SectorRequest(BaseModel):
+    sector: str = Field(min_length=1, max_length=100)
+
+
+class SectorData(BaseModel):
+    sector: str
+    symbols: list[str]

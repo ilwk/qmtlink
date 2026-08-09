@@ -6,9 +6,16 @@ from qmtlink.errors import QMTLinkError
 from qmtlink.models import (
     AccountAsset,
     CancelResult,
+    DividendData,
+    DividendRequest,
     EventBatch,
+    FinancialData,
+    FinancialRequest,
     HistoricalData,
+    HistoricalSTData,
     HistoryRequest,
+    InstrumentData,
+    InstrumentRequest,
     OrderPreview,
     OrderRecord,
     OrderRequest,
@@ -16,6 +23,8 @@ from qmtlink.models import (
     Position,
     Quote,
     QuoteSubscription,
+    SectorData,
+    SectorRequest,
     TradeRecord,
 )
 
@@ -45,6 +54,11 @@ class MockBridge:
             "cancel_orders": True,
             "supported_order_types": ["limit"],
             "historical_data": True,
+            "instrument_details": True,
+            "financial_data": True,
+            "dividend_data": True,
+            "historical_st_data": True,
+            "historical_limit_prices": True,
             "supported_periods": [
                 "tick",
                 "1m",
@@ -126,6 +140,75 @@ class MockBridge:
             fill_data=request.fill_data,
             bars=bars,
             bar_count={symbol: len(rows) for symbol, rows in bars.items()},
+        )
+
+    def get_instruments(self, request: InstrumentRequest) -> InstrumentData:
+        return InstrumentData(
+            instruments={
+                symbol: {
+                    "ExchangeID": symbol.rsplit(".", 1)[-1],
+                    "InstrumentID": symbol.split(".", 1)[0],
+                    "InstrumentName": "Mock",
+                    "OpenDate": 20200101,
+                    "ExpireDate": 99999999,
+                    "UpStopPrice": 11.0,
+                    "DownStopPrice": 9.0,
+                    "FloatVolume": 100_000_000.0,
+                    "TotalVolume": 100_000_000.0,
+                    "InstrumentStatus": 0,
+                    "IsTrading": True,
+                }
+                for symbol in request.symbols
+            }
+        )
+
+    def get_financial(self, request: FinancialRequest) -> FinancialData:
+        tables = request.tables or ["PershareIndex"]
+        financial = {
+            symbol: {
+                table: [
+                    {
+                        "m_timetag": 20231231,
+                        "m_anntime": 20240430,
+                        "du_return_on_equity": 8.0,
+                        "inc_revenue_rate": 10.0,
+                        "du_profit_rate": 12.0,
+                        "adjusted_net_profit_rate": 12.0,
+                    }
+                ]
+                for table in tables
+            }
+            for symbol in request.symbols
+        }
+        return FinancialData(
+            start_time=request.start_time,
+            end_time=request.end_time,
+            report_type=request.report_type,
+            financial=financial,
+        )
+
+    def get_dividends(self, request: DividendRequest) -> DividendData:
+        return DividendData(
+            start_time=request.start_time,
+            end_time=request.end_time,
+            factors={
+                symbol: [
+                    {
+                        "time": 20230630,
+                        "cash_dividend": 0.10,
+                    }
+                ]
+                for symbol in request.symbols
+            },
+        )
+
+    def get_historical_st(self, request: InstrumentRequest) -> HistoricalSTData:
+        return HistoricalSTData(statuses={symbol: {} for symbol in request.symbols})
+
+    def get_sector_symbols(self, request: SectorRequest) -> SectorData:
+        return SectorData(
+            sector=request.sector,
+            symbols=["000001.SZ", "600000.SH", "300001.SZ", "688001.SH"],
         )
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:
