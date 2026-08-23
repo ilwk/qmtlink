@@ -1,6 +1,6 @@
 [project]
 name = "qmtlink"
-version = "0.1.0a20"
+version = "0.1.0a21"
 description = "An unofficial HTTP bridge for miniQMT/xtquant"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

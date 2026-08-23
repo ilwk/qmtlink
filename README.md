@@ -108,6 +108,9 @@ uv tool upgrade qmtlink
 X-API-Key: <api_key>
 ```
 
+在 `/docs` 中点击右上角 **Authorize**，输入一次 API key，即可在当前 Swagger 会话中调用
+所有接口。
+
 健康检查：
 
 ```bash

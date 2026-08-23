@@ -6,8 +6,9 @@ import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 from qmtlink import __version__
 from qmtlink.bridge import Bridge
@@ -23,6 +24,13 @@ from qmtlink.models import (
     OrderRequest,
     QuoteRequest,
     SectorRequest,
+)
+
+_API_KEY_HEADER = APIKeyHeader(
+    name="X-API-Key",
+    scheme_name="QmtLinkApiKey",
+    description="API key from the QmtLink configuration file.",
+    auto_error=False,
 )
 
 
@@ -49,7 +57,7 @@ def create_app(
         finally:
             backend.close()
 
-    def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    def require_api_key(x_api_key: str | None = Security(_API_KEY_HEADER)) -> None:
         expected = settings.api_key
         if not expected:
             raise HTTPException(

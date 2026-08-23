@@ -19,10 +19,33 @@ def make_client(*, allow_trading: bool = False) -> httpx.AsyncClient:
 async def test_health() -> None:
     async with make_client() as client:
         unauthorized = await client.get("/api/v1/health")
+        invalid = await client.get("/api/v1/health", headers={"X-API-Key": "wrong"})
         response = await client.get("/api/v1/health", headers={"X-API-Key": "test-secret"})
     assert unauthorized.status_code == 401
+    assert invalid.status_code == 401
+    assert invalid.json()["error"]["code"] == "INVALID_API_KEY"
     assert response.status_code == 200
     assert response.json()["data"]["mock"] is True
+
+
+@pytest.mark.asyncio
+async def test_openapi_exposes_one_global_api_key_authorization_scheme() -> None:
+    async with make_client() as client:
+        response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    document = response.json()
+    assert document["components"]["securitySchemes"] == {
+        "QmtLinkApiKey": {
+            "type": "apiKey",
+            "description": "API key from the QmtLink configuration file.",
+            "in": "header",
+            "name": "X-API-Key",
+        }
+    }
+    health = document["paths"]["/api/v1/health"]["get"]
+    assert health["security"] == [{"QmtLinkApiKey": []}]
+    assert all(parameter["name"] != "x-api-key" for parameter in health.get("parameters", []))
 
 
 @pytest.mark.asyncio
