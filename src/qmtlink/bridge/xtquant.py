@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import time
 from datetime import datetime
@@ -40,6 +41,11 @@ from .events import EventJournal
 from .idempotency import IdempotencyStore, default_idempotency_path
 
 _SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+logger = logging.getLogger(__name__)
+
+
+def _masked_account(account_id: str) -> str:
+    return f"******{account_id[-4:]}"
 
 
 class XtQuantBridge:
@@ -83,10 +89,13 @@ class XtQuantBridge:
             def on_connected(self) -> None:
                 bridge._connected = True
                 bridge._events.publish("connection", {"connected": True})
+                if hasattr(bridge, "_idempotency"):
+                    logger.info("miniQMT reconnected")
 
             def on_disconnected(self) -> None:
                 bridge._connected = False
                 bridge._events.publish("connection", {"connected": False})
+                logger.warning("miniQMT disconnected")
 
             def on_stock_order(self, order: Any) -> None:
                 mapped = bridge._order(order)
@@ -97,6 +106,12 @@ class XtQuantBridge:
                 bridge._events.publish("trade", mapped.model_dump(mode="json"))
 
             def on_order_error(self, error: Any) -> None:
+                logger.error(
+                    "Order rejected order_id=%s error_id=%s message=%s",
+                    getattr(error, "order_id", ""),
+                    getattr(error, "error_id", 0),
+                    getattr(error, "error_msg", ""),
+                )
                 bridge._events.publish(
                     "order_error",
                     {
@@ -107,6 +122,12 @@ class XtQuantBridge:
                 )
 
             def on_cancel_error(self, error: Any) -> None:
+                logger.error(
+                    "Cancellation rejected order_id=%s error_id=%s message=%s",
+                    getattr(error, "order_id", ""),
+                    getattr(error, "error_id", 0),
+                    getattr(error, "error_msg", ""),
+                )
                 bridge._events.publish(
                     "cancel_error",
                     {
@@ -143,6 +164,7 @@ class XtQuantBridge:
                     status_code=503,
                 )
             self._connected = True
+            logger.info("miniQMT connected")
             subscribe_result = self._trader.subscribe(self._account)
             if subscribe_result != 0:
                 raise QMTLinkError(
@@ -151,6 +173,7 @@ class XtQuantBridge:
                     retryable=True,
                     status_code=503,
                 )
+            logger.info("Account %s subscribed", _masked_account(settings.account_id))
             self._idempotency = IdempotencyStore(default_idempotency_path())
         except Exception:
             self.close()
@@ -851,3 +874,5 @@ class XtQuantBridge:
                 store = getattr(self, "_idempotency", None)
                 if store is not None:
                     store.close()
+                if trader is not None:
+                    logger.info("XtQuantTrader closed")

@@ -13,3 +13,7 @@ qmt_path = ''
 account_id = ''
 # 真实交易保护：保持 false；只有明确改为 true 且 API 请求携带 live=true 才允许下单。
 allow_trading = false
+# 控制台日志级别：DEBUG、INFO、WARNING、ERROR 或 CRITICAL。
+log_level = 'INFO'
+# 默认关闭逐请求访问日志，排查 HTTP 请求时再临时开启。
+access_log = false

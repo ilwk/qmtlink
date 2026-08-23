@@ -1,6 +1,6 @@
 [project]
 name = "qmtlink"
-version = "0.1.0a19"
+version = "0.1.0a20"
 description = "An unofficial HTTP bridge for miniQMT/xtquant"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "fastapi>=0.141.1",
     "pydantic>=2.13.4",
+    "rich>=15.0.0",
     "uvicorn[standard]>=0.52.1",
     "numpy>=1.26.4,<3; sys_platform == 'win32'",
     "pandas>=2.2.0,<3; sys_platform == 'win32'",

@@ -14,9 +14,13 @@ def test_default_server_settings(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("QMTLINK_CONFIG", str(tmp_path / "missing.toml"))
     monkeypatch.delenv("QMTLINK_HOST", raising=False)
     monkeypatch.delenv("QMTLINK_PORT", raising=False)
+    monkeypatch.delenv("QMTLINK_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("QMTLINK_ACCESS_LOG", raising=False)
     settings = ServerSettings.from_env()
     assert settings.host == "0.0.0.0"
     assert settings.port == 8000
+    assert settings.log_level == "INFO"
+    assert settings.access_log is False
 
 
 def test_default_config_path_uses_the_same_short_xdg_location_everywhere(
@@ -44,6 +48,8 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
     assert "host = '0.0.0.0'" in first_content.decode()
     assert "port = 8000" in first_content.decode()
     assert "allow_trading = false" in first_content.decode()
+    assert "log_level = 'INFO'" in first_content.decode()
+    assert "access_log = false" in first_content.decode()
     assert set(data) == {"api_key", "server"}
     assert data["server"]["allow_trading"] is False
     assert data["server"]["host"] == "0.0.0.0"
@@ -68,6 +74,8 @@ port = 9000
 qmt_path = 'C:\\miniQMT\\userdata_mini'
 account_id = "123456"
 allow_trading = true
+log_level = "DEBUG"
+access_log = true
 """,
         encoding="utf-8",
     )
@@ -78,6 +86,8 @@ allow_trading = true
         "QMTLINK_QMT_PATH",
         "QMTLINK_ACCOUNT_ID",
         "QMTLINK_ALLOW_TRADING",
+        "QMTLINK_LOG_LEVEL",
+        "QMTLINK_ACCESS_LOG",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -89,6 +99,8 @@ allow_trading = true
     assert server.qmt_path == r"C:\miniQMT\userdata_mini"
     assert server.account_id == "123456"
     assert server.allow_trading is True
+    assert server.log_level == "DEBUG"
+    assert server.access_log is True
 
 
 def test_allow_trading_requires_a_toml_boolean(tmp_path) -> None:
@@ -96,4 +108,12 @@ def test_allow_trading_requires_a_toml_boolean(tmp_path) -> None:
     config_path.write_text('[server]\nallow_trading = "false"\n', encoding="utf-8")
 
     with pytest.raises(QMTLinkError, match="allow_trading must be true or false"):
+        ServerSettings.from_env(config_path)
+
+
+def test_log_level_must_be_supported(tmp_path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('[server]\nlog_level = "VERBOSE"\n', encoding="utf-8")
+
+    with pytest.raises(QMTLinkError, match="log_level must be DEBUG"):
         ServerSettings.from_env(config_path)

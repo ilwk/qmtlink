@@ -104,6 +104,8 @@ class ServerSettings:
     account_id: str | None = None
     account_type: str = "STOCK"
     strategy_name: str = "qmtlink"
+    log_level: str = "INFO"
+    access_log: bool = False
 
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> ServerSettings:
@@ -111,6 +113,16 @@ class ServerSettings:
         _, data = load_config(config_path)
         server = _config_section(data, "server")
         configured_allow_trading = _config_bool(server, "allow_trading", defaults.allow_trading)
+        configured_access_log = _config_bool(server, "access_log", defaults.access_log)
+        log_level = os.getenv(
+            "QMTLINK_LOG_LEVEL", str(server.get("log_level", defaults.log_level))
+        ).upper()
+        if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise QMTLinkError(
+                "INVALID_CONFIG",
+                "config field log_level must be DEBUG, INFO, WARNING, ERROR, or CRITICAL",
+                status_code=400,
+            )
         return cls(
             host=os.getenv("QMTLINK_HOST", str(server.get("host", defaults.host))),
             port=int(os.getenv("QMTLINK_PORT", str(server.get("port", defaults.port)))),
@@ -125,4 +137,6 @@ class ServerSettings:
                 "QMTLINK_STRATEGY_NAME",
                 str(server.get("strategy_name", defaults.strategy_name)),
             ),
+            log_level=log_level,
+            access_log=_env_bool("QMTLINK_ACCESS_LOG", configured_access_log),
         )

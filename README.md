@@ -62,6 +62,35 @@ qmtlink
 bridge 默认监听 `0.0.0.0:8000`，使用单个 XtQuantTrader 实例连接并订阅 miniQMT 账户。
 不要把端口直接暴露到公网。
 
+启动时会先显示不包含 API key 的配置摘要，再输出 miniQMT、账户订阅和 HTTP server 的
+运行日志。资金账号只显示末四位：
+
+```text
+QmtLink Bridge <version>
+Config: C:\Users\ilwk\.config\qmtlink\config.toml
+miniQMT: C:\miniQMT\userdata_mini
+Account: ******5678 · STOCK
+Trading: LOCKED
+Bind: 0.0.0.0:8000
+Local API: http://127.0.0.1:8000
+OpenAPI: http://127.0.0.1:8000/docs
+```
+
+在交互终端中使用带颜色的面板和日志；输出重定向到文件时自动使用便于检索的纯文本格式。
+默认关闭逐请求 access log，避免行情和事件轮询刷屏。
+
+只检查 Windows、Python、xtquant、配置和 miniQMT 路径而不启动 bridge：
+
+```powershell
+qmtlink doctor
+```
+
+查看版本：
+
+```powershell
+qmtlink --version
+```
+
 升级使用：
 
 ```powershell
@@ -205,6 +234,8 @@ curl \
 | `server.host` | `QMTLINK_HOST` | `0.0.0.0` | HTTP 监听地址 |
 | `server.port` | `QMTLINK_PORT` | `8000` | HTTP 监听端口 |
 | `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单 |
+| `server.log_level` | `QMTLINK_LOG_LEVEL` | `INFO` | 控制台日志级别 |
+| `server.access_log` | `QMTLINK_ACCESS_LOG` | `false` | 是否输出每个 HTTP 请求 |
 
 配置优先级为：环境变量、`config.toml`、程序默认值。可用 `QMTLINK_CONFIG` 指定其他配置文件。
 

@@ -1,7 +1,7 @@
 import pytest
 
 from qmtlink.errors import QMTLinkError
-from qmtlink.server.runner import load_server_settings, main
+from qmtlink.server.runner import build_parser, load_server_settings, main
 
 
 def test_load_server_settings_creates_config_and_requires_qmt(monkeypatch, tmp_path) -> None:
@@ -30,7 +30,20 @@ def test_main_starts_bridge_from_server_environment(monkeypatch, tmp_path) -> No
 
     monkeypatch.setattr("qmtlink.server.runner.run_server", capture)
 
-    main()
+    main([])
 
     assert captured["settings"].qmt_path == r"C:\miniQMT\userdata_mini"
     assert captured["settings"].account_id == "123456"
+
+
+def test_parser_keeps_bridge_start_as_the_default_command() -> None:
+    assert build_parser().parse_args([]).command is None
+    assert build_parser().parse_args(["doctor"]).command == "doctor"
+
+
+def test_version_option_uses_package_version(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--version"])
+
+    assert exit_info.value.code == 0
+    assert "qmtlink " in capsys.readouterr().out

@@ -7,6 +7,7 @@ QmtLink 只维护 miniQMT/xtquant 到版本化 HTTP 接口的 bridge。客户端
 
 - [x] 可发布的 Windows bridge 包
 - [x] 单命令启动 FastAPI server
+- [x] 启动摘要、统一日志和环境诊断
 - [x] 健康检查、能力发现和行情快照
 - [x] 历史行情（tick/K 线、时间范围/条数、复权、原始字段）
 - [x] 合约、财务、除权除息、历史 ST 和板块数据
