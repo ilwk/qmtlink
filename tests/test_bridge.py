@@ -40,9 +40,7 @@ def test_mock_research_data_is_available_through_bridge_protocol() -> None:
     sectors = bridge.get_sector_symbols(SectorRequest(sector="沪深A股"))
 
     assert instrument.instruments["000001.SZ"]["OpenDate"] == 20200101
-    assert financial.financial["000001.SZ"]["PershareIndex"][0][
-        "adjusted_net_profit_rate"
-    ] == 12.0
+    assert financial.financial["000001.SZ"]["PershareIndex"][0]["adjusted_net_profit_rate"] == 12.0
     assert dividends.factors["000001.SZ"][0]["cash_dividend"] == 0.1
     assert historical_st.statuses["000001.SZ"] == {}
     assert "688001.SH" in sectors.symbols

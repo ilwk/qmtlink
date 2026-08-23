@@ -51,7 +51,7 @@ class XtQuantBridge:
         if not settings.qmt_path or not settings.account_id:
             raise QMTLinkError(
                 "QMT_CONFIG_REQUIRED",
-                "QMTLINK_QMT_PATH and QMTLINK_ACCOUNT_ID are required in real mode",
+                "QMTLINK_QMT_PATH and QMTLINK_ACCOUNT_ID are required",
                 status_code=503,
             )
 
@@ -62,7 +62,7 @@ class XtQuantBridge:
         except ImportError as exc:
             raise QMTLinkError(
                 "XTQUANT_NOT_INSTALLED",
-                "xtquant is unavailable; run `qmt bridge doctor` on the miniQMT machine",
+                "xtquant is unavailable; install qmtlink with Python 3.13 on the miniQMT machine",
                 status_code=503,
             ) from exc
 
@@ -411,8 +411,7 @@ class XtQuantBridge:
 
     def get_financial(self, request: FinancialRequest) -> FinancialData:
         data_symbols = [
-            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol
-            for symbol in request.symbols
+            f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol for symbol in request.symbols
         ]
         raw = self._invoke_xtdata(
             "get_financial_data",

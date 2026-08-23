@@ -6,9 +6,8 @@ from qmtlink.config import ServerSettings
 from qmtlink.server.app import create_app
 
 
-def make_client(*, mode: str = "mock", allow_trading: bool = False) -> httpx.AsyncClient:
+def make_client(*, allow_trading: bool = False) -> httpx.AsyncClient:
     settings = ServerSettings(
-        mode=mode,
         api_key="test-secret",
         allow_trading=allow_trading,
     )
@@ -19,7 +18,9 @@ def make_client(*, mode: str = "mock", allow_trading: bool = False) -> httpx.Asy
 @pytest.mark.asyncio
 async def test_health() -> None:
     async with make_client() as client:
-        response = await client.get("/api/v1/health")
+        unauthorized = await client.get("/api/v1/health")
+        response = await client.get("/api/v1/health", headers={"X-API-Key": "test-secret"})
+    assert unauthorized.status_code == 401
     assert response.status_code == 200
     assert response.json()["data"]["mock"] is True
 
@@ -27,7 +28,11 @@ async def test_health() -> None:
 @pytest.mark.asyncio
 async def test_quotes() -> None:
     async with make_client() as client:
-        response = await client.post("/api/v1/market/quotes", json={"symbols": ["000001.SZ"]})
+        response = await client.post(
+            "/api/v1/market/quotes",
+            headers={"X-API-Key": "test-secret"},
+            json={"symbols": ["000001.SZ"]},
+        )
     assert response.status_code == 200
     assert response.json()["data"][0]["symbol"] == "000001.SZ"
 
@@ -144,7 +149,7 @@ async def test_order_preview_requires_api_key() -> None:
 
 @pytest.mark.asyncio
 async def test_mock_order_submission() -> None:
-    async with make_client() as client:
+    async with make_client(allow_trading=True) as client:
         response = await client.post(
             "/api/v1/orders",
             headers={"X-API-Key": "test-secret"},
@@ -178,7 +183,7 @@ async def test_account_queries_require_key_and_return_models() -> None:
 @pytest.mark.asyncio
 async def test_order_get_and_cancel() -> None:
     headers = {"X-API-Key": "test-secret"}
-    async with make_client() as client:
+    async with make_client(allow_trading=True) as client:
         placed = await client.post(
             "/api/v1/orders",
             headers=headers,
@@ -204,7 +209,7 @@ async def test_order_get_and_cancel() -> None:
 
 @pytest.mark.asyncio
 async def test_real_order_submission_requires_allow_trading() -> None:
-    async with make_client(mode="real") as client:
+    async with make_client() as client:
         response = await client.post(
             "/api/v1/orders",
             headers={"X-API-Key": "test-secret"},
@@ -223,7 +228,7 @@ async def test_real_order_submission_requires_allow_trading() -> None:
 
 @pytest.mark.asyncio
 async def test_real_order_submission_allows_explicit_trading() -> None:
-    async with make_client(mode="real", allow_trading=True) as client:
+    async with make_client(allow_trading=True) as client:
         response = await client.post(
             "/api/v1/orders",
             headers={"X-API-Key": "test-secret"},

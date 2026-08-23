@@ -1,41 +1,33 @@
 [project]
 name = "qmtlink"
-version = "0.1.0a18"
-description = "An unofficial CLI, Python SDK, and HTTP bridge for miniQMT/xtquant"
+version = "0.1.0a19"
+description = "An unofficial HTTP bridge for miniQMT/xtquant"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "QmtLink Contributors" }]
-keywords = ["miniqmt", "qmt", "xtquant", "trading", "cli"]
+keywords = ["miniqmt", "qmt", "xtquant", "trading", "api", "bridge"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "httpx>=0.28.1",
-    "pydantic>=2.13.4",
-    "typer>=0.27.1",
-]
-
-[project.optional-dependencies]
-server = [
     "fastapi>=0.141.1",
+    "pydantic>=2.13.4",
     "uvicorn[standard]>=0.52.1",
-    "numpy>=1.26.4,<3; sys_platform == 'win32' and python_version < '3.14'",
-    "pandas>=2.2.0,<3; sys_platform == 'win32' and python_version < '3.14'",
-    "xtquant==250807.1.2; sys_platform == 'win32' and python_version < '3.14'",
+    "numpy>=1.26.4,<3; sys_platform == 'win32'",
+    "pandas>=2.2.0,<3; sys_platform == 'win32'",
+    "xtquant==250807.1.2; sys_platform == 'win32'",
 ]
 
 [project.scripts]
-qmt = "qmtlink.cli.main:main"
-qmtlink = "qmtlink.cli.main:main"
+qmtlink = "qmtlink.server.runner:main"
 
 [project.urls]
 Homepage = "https://github.com/ilwk/qmtlink"
@@ -48,6 +40,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.1",

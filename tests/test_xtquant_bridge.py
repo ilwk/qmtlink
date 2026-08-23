@@ -209,9 +209,7 @@ def install_fake_xtquant(monkeypatch) -> None:
         }
         for symbol in symbols
     }
-    data.get_divid_factors = lambda symbol, start, end: [
-        {"time": 20230630, "cash_dividend": 0.2}
-    ]
+    data.get_divid_factors = lambda symbol, start, end: [{"time": 20230630, "cash_dividend": 0.2}]
     data.get_his_st_data = lambda symbol: {"ST": [["20200101", "20210101"]]}
     data.get_stock_list_in_sector = lambda sector: ["000001.SZ", "688001.SH"]
 
@@ -348,9 +346,7 @@ def test_xtquant_bridge_exposes_research_data(monkeypatch) -> None:
     sectors = bridge.get_sector_symbols(SectorRequest(sector="沪深A股"))
 
     assert instrument.instruments["600000.SS"]["OpenDate"] == 19910403
-    assert financial.financial["600000.SS"]["PershareIndex"][0][
-        "du_return_on_equity"
-    ] == 9.0
+    assert financial.financial["600000.SS"]["PershareIndex"][0]["du_return_on_equity"] == 9.0
     assert dividends.factors["600000.SS"][0]["cash_dividend"] == 0.2
     assert historical_st.statuses["600000.SS"]["ST"] == [["20200101", "20210101"]]
     assert sectors.symbols == ["000001.SZ", "688001.SH"]
@@ -401,14 +397,16 @@ def test_daily_history_converts_yyyymmdd_time_to_date(monkeypatch) -> None:
     import xtquant.xtdata as data
 
     data.get_market_data_ex = lambda fields, symbols, period, start, end, count, dividend, fill: {
-        symbol: [{
-            "time": "20240108",
-            "open": 10.0,
-            "high": 10.5,
-            "low": 9.8,
-            "close": 10.2,
-            "volume": 1000,
-        }]
+        symbol: [
+            {
+                "time": "20240108",
+                "open": 10.0,
+                "high": 10.5,
+                "low": 9.8,
+                "close": 10.2,
+                "volume": 1000,
+            }
+        ]
         for symbol in symbols
     }
     bridge = XtQuantBridge(

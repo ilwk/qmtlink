@@ -1,1 +1,1 @@
-"""Optional FastAPI server package."""
+"""FastAPI bridge server."""

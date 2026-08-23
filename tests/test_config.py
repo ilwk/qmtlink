@@ -3,22 +3,11 @@ import tomllib
 import pytest
 
 from qmtlink.config import (
-    ClientSettings,
     ServerSettings,
     create_default_config,
     default_config_path,
 )
 from qmtlink.errors import QMTLinkError
-
-
-def test_default_client_settings(monkeypatch, tmp_path) -> None:
-    monkeypatch.setenv("QMTLINK_CONFIG", str(tmp_path / "missing.toml"))
-    monkeypatch.delenv("QMTLINK_URL", raising=False)
-    monkeypatch.delenv("QMTLINK_API_KEY", raising=False)
-    monkeypatch.delenv("QMTLINK_TIMEOUT", raising=False)
-    settings = ClientSettings.from_env()
-    assert settings.base_url == "http://127.0.0.1:8000"
-    assert settings.timeout == 30.0
 
 
 def test_default_server_settings(monkeypatch, tmp_path) -> None:
@@ -28,7 +17,6 @@ def test_default_server_settings(monkeypatch, tmp_path) -> None:
     settings = ServerSettings.from_env()
     assert settings.host == "0.0.0.0"
     assert settings.port == 8000
-    assert settings.mode == "real"
 
 
 def test_default_config_path_uses_the_same_short_xdg_location_everywhere(
@@ -56,7 +44,7 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
     assert "host = '0.0.0.0'" in first_content.decode()
     assert "port = 8000" in first_content.decode()
     assert "allow_trading = false" in first_content.decode()
-    assert set(data) == {"api_key", "server", "client"}
+    assert set(data) == {"api_key", "server"}
     assert data["server"]["allow_trading"] is False
     assert data["server"]["host"] == "0.0.0.0"
     assert data["server"]["port"] == 8000
@@ -69,7 +57,7 @@ def test_create_default_config_is_minimal_and_stable(tmp_path) -> None:
     assert path.read_bytes() == first_content
 
 
-def test_settings_are_loaded_from_client_and_server_sections(monkeypatch, tmp_path) -> None:
+def test_settings_are_loaded_from_server_section(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         """api_key = "secret"
@@ -80,15 +68,10 @@ port = 9000
 qmt_path = 'C:\\miniQMT\\userdata_mini'
 account_id = "123456"
 allow_trading = true
-
-[client]
-url = "http://127.0.0.1:9100"
-timeout = 12.5
 """,
         encoding="utf-8",
     )
     for name in (
-        "QMTLINK_URL",
         "QMTLINK_API_KEY",
         "QMTLINK_HOST",
         "QMTLINK_PORT",
@@ -98,12 +81,9 @@ timeout = 12.5
     ):
         monkeypatch.delenv(name, raising=False)
 
-    client = ClientSettings.from_env(config_path)
     server = ServerSettings.from_env(config_path)
 
-    assert client.base_url == "http://127.0.0.1:9100"
-    assert client.api_key == "secret"
-    assert client.timeout == 12.5
+    assert server.api_key == "secret"
     assert server.host == "0.0.0.0"
     assert server.port == 9000
     assert server.qmt_path == r"C:\miniQMT\userdata_mini"

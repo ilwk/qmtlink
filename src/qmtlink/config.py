@@ -1,4 +1,4 @@
-"""TOML and environment-backed settings shared by the CLI and server."""
+"""TOML and environment-backed bridge settings."""
 
 from __future__ import annotations
 
@@ -95,35 +95,9 @@ def _config_bool(data: dict[str, Any], name: str, default: bool) -> bool:
 
 
 @dataclass(frozen=True, slots=True)
-class ClientSettings:
-    base_url: str = "http://127.0.0.1:8000"
-    api_key: str | None = None
-    timeout: float = 30.0
-
-    @classmethod
-    def from_env(cls, config_path: str | Path | None = None) -> ClientSettings:
-        defaults = cls()
-        _, data = load_config(config_path)
-        server = _config_section(data, "server")
-        client = _config_section(data, "client")
-        bridge_host = str(server.get("host", "0.0.0.0"))
-        if bridge_host in {"0.0.0.0", "::"}:
-            bridge_host = "127.0.0.1"
-        derived_url = f"http://{bridge_host}:{int(server.get('port', 8000))}"
-        return cls(
-            base_url=os.getenv("QMTLINK_URL", str(client.get("url", derived_url))),
-            api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
-            timeout=float(
-                os.getenv("QMTLINK_TIMEOUT", str(client.get("timeout", defaults.timeout)))
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class ServerSettings:
     host: str = "0.0.0.0"
     port: int = 8000
-    mode: str = "real"
     api_key: str | None = None
     allow_trading: bool = False
     qmt_path: str | None = None
@@ -140,7 +114,6 @@ class ServerSettings:
         return cls(
             host=os.getenv("QMTLINK_HOST", str(server.get("host", defaults.host))),
             port=int(os.getenv("QMTLINK_PORT", str(server.get("port", defaults.port)))),
-            mode=defaults.mode,
             api_key=(os.getenv("QMTLINK_API_KEY") or data.get("api_key") or None),
             allow_trading=_env_bool("QMTLINK_ALLOW_TRADING", configured_allow_trading),
             qmt_path=os.getenv("QMTLINK_QMT_PATH") or server.get("qmt_path") or None,

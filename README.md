@@ -1,242 +1,224 @@
 # QmtLink
 
-QmtLink 是一个面向 A 股 miniQMT/xtquant 的非官方中转工具，让 Windows 交易机、AI
-命令行工具和 Python 量化项目使用同一套交易接口。
+QmtLink 是一个运行在 Windows miniQMT 交易机上的非官方 HTTP bridge。它只做两件事：
 
-主要功能：
+1. 通过 xtquant 与本机 miniQMT 通讯；
+2. 向局域网内的调用方提供稳定、版本化的 HTTP API。
 
-- 一条命令启动 Windows miniQMT 中转服务
-- 提供默认输出 JSON 的 `qmt` 命令，方便 AI 和自动化脚本调用
-- 提供 Python SDK，方便量化项目接入实盘
-- 提供 HTTP 接口，隔离策略代码与 Windows miniQMT 环境
-- 支持历史 tick/K 线、时间范围/条数、复权和 xtdata 原始字段，供回测读取
-- 支持行情、资产、持仓、委托、成交、下单、查单和撤单
-- 支持带单调游标的行情、委托、成交和账户事件续读
-- 使用 SQLite 持久化下单幂等记录，降低重复下单风险
+调用方直接使用 HTTP API，不需要安装 QmtLink Python SDK，也不需要使用 QmtLink 客户端命令。
+策略、回测和业务数据转换应留在调用方项目中。
 
 QmtLink 对外使用 `buy`、`sell`、`limit` 等可读字段，在 bridge 内部统一转换为 xtquant
-常量。查询结果同时保留 `broker_*` 原始值和标准化字段，方便排查券商差异，但不把 xtquant
-数字常量扩散到 CLI 和量化策略中。
+常量。查询结果同时保留 `broker_*` 原始值和标准化字段，避免把券商数字常量扩散到调用方。
 
-> **开发阶段声明：** QmtLink 当前仍处于开发预览阶段，接口、配置和数据字段可能继续调整，
-> 不建议直接用于生产环境或无人值守实盘。模拟模式、HTTP 接口、命令行、SDK 和历史行情
-> 接口已可用；真实交易默认关闭，使用前请先完成你自己的环境验证。
+> **开发阶段声明：** QmtLink 当前仍处于开发预览阶段，HTTP 接口和数据字段可能继续调整。
+> 不建议直接用于生产环境或无人值守实盘。真实交易前请先在模拟盘或券商测试环境中验证。
 
-## 安装
+## 职责范围
 
-在普通电脑上安装 `qmt` 命令，只包含 Client：
+QmtLink 包含：
 
-```bash
-uv tool install qmtlink
-```
+- FastAPI HTTP server；
+- miniQMT/xtquant 行情、账户与交易适配；
+- 请求校验、统一错误响应和 OpenAPI 文档；
+- 行情与交易事件续读；
+- SQLite 下单幂等保护；
+- 真实交易开关。
 
-安装后可使用下面的命令更新到 PyPI 上的最新版本：
+QmtLink 不包含客户端 SDK、客户端 CLI、策略、回测、因子、GUI、数据仓库或任意 xtquant
+对象代理。
 
-```bash
-qmt update
-```
+## 安装与启动
 
-查看当前版本：
-
-```bash
-qmt --version
-```
-
-在 Windows miniQMT 交易机上安装 Bridge：
+在 Windows miniQMT 交易机上使用 Python 3.13 安装：
 
 ```powershell
-uv tool install "qmtlink[server]" --python 3.13
+uv tool install qmtlink --python 3.13
 ```
 
-安装到自己的 Python 量化项目：
-
-```bash
-uv add qmtlink
-```
-
-## 快速体验
-
-安装 Bridge 后直接启动。未配置 miniQMT 账号时会自动使用 Mock 模式：
-
-```bash
-qmt bridge run
-```
-
-在终端中会显示易读的启动摘要；如果需要供脚本解析 JSON，可使用 `qmt bridge run --json`，
-或将输出重定向到其他程序。
-
-在另一个终端执行：
-
-```bash
-qmt health
-qmt capabilities
-qmt market quote --symbol 000001.SZ --symbol 600519.SH
-qmt market history --symbol 000001.SZ --period 1d --start-time 20200101 --end-time 20241231 --dividend-type front_ratio
-qmt account asset
-qmt account positions
-qmt order preview --symbol 000001.SZ --side buy --quantity 100 --price 10.50
-```
-
-第一次运行时会自动生成配置文件和随机 API 密钥。也可以使用
-`qmt bridge run --mock` 强制进入 Mock 模式。除 `bridge run` 在终端显示启动摘要外，其余命令
-默认输出 JSON；`qmtlink` 也可以作为 `qmt` 的备用命令。
-
-## 连接 Windows miniQMT
-
-直接运行：
+第一次运行：
 
 ```powershell
-qmt bridge run
+qmtlink
 ```
 
-QmtLink 第一次运行会自动生成配置文件，以 Mock 模式启动，并在输出中显示文件位置。按
-`Ctrl+C` 停止服务，打开配置文件，只需填写：
+QmtLink 会生成 `~/.config/qmtlink/config.toml`，然后提示配置 miniQMT 路径和资金账号。
+打开配置文件，至少填写：
 
 ```toml
+api_key = "自动生成的密钥，请保留"
+
+[server]
 qmt_path = 'C:\miniQMT安装目录\userdata_mini'
 account_id = "你的资金账号"
 ```
 
-保存后再次运行：
+保存后再次启动：
 
 ```powershell
-qmt bridge run
+qmtlink
 ```
 
-不需要自己生成 API 密钥，也不需要设置环境变量。可使用 `qmt bridge doctor` 检查当前配置和
-运行环境。
+bridge 默认监听 `0.0.0.0:8000`，使用单个 XtQuantTrader 实例连接并订阅 miniQMT 账户。
+不要把端口直接暴露到公网。
 
-QmtLink 会启动唯一的 XtQuantTrader 运行实例，连接 miniQMT 并订阅账户。真实中转服务建议
-使用 Python 3.13，并先在模拟盘或券商测试环境中验证。Client 不受 xtquant 的 Python 版本
-上限影响。
+升级使用：
 
-## Python SDK
-
-```python
-from qmtlink import QMTClient
-from qmtlink.models import HistoryRequest
-
-with QMTClient() as client:
-    print(client.health())
-    history = client.get_history(
-        HistoryRequest(
-            symbols=["000001.SZ"],
-            period="1d",
-            start_time="20200101",
-            end_time="20241231",
-            dividend_type="front_ratio",
-        )
-    )
-    print(history.bars["000001.SZ"])
-    subscription = client.subscribe_quotes(["000001.SZ"])
-    events = client.poll_events(after_sequence=subscription.cursor, timeout=20)
-    print(events.events)
-    print(client.get_positions())
+```powershell
+uv tool upgrade qmtlink
 ```
 
-历史行情接口为 `POST /api/v1/market/history`。默认返回 xtdata 的全部原始字段，数据按
-`bars[symbol]` 分组；常用字段包括 `time`、`open`、`high`、`low`、`close`、`volume`、
-`amount`、`preClose` 和 `suspendFlag`。请求默认先读取 xtdata 的本地缓存；标的没有缓存数据时，
-才会自动补充历史数据并重新读取。`fill_data` 默认关闭，避免把停牌期间填充的数据
-误当成真实成交；复权方式必须由回测明确选择，默认是不复权。日线还会提供
-AKQuant 直接可用的 `date`（`YYYYMMDD` 整数）字段；`time` 原始时间戳仍会保留。
+也可以使用 `python -m qmtlink` 启动。生产运行时应由 Windows 服务管理器或你自己的进程
+管理工具负责自动启动和重启。
 
-历史查询接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回时保留请求中的
-代码形式。
+## 直接调用 HTTP API
 
-只读研究数据接口：
+所有 API 请求都必须携带配置文件中的 API key：
 
-- `POST /api/v1/market/instruments`：上市日期、退市日期、股本、交易状态和当前涨跌停价等合约信息；
-- `POST /api/v1/market/financial`：`Balance`、`Income`、`CashFlow`、`PershareIndex`、`Capital` 等财务表，支持 `report_type = "announce_time"`；
-- `POST /api/v1/market/dividends`：`xtdata.get_divid_factors` 除权除息数据；
-- `POST /api/v1/market/historical-st`：历史 ST、*ST、PT 区间。
-- `POST /api/v1/market/sectors`：读取 miniQMT 当前板块成分股列表。
+```text
+X-API-Key: <api_key>
+```
 
-这些接口只转发 miniQMT/xtdata 已有数据，不把当前值伪装成历史值。财务回测应使用
-`announce_time`，历史涨跌停价使用历史行情的 `stoppricedata` 周期；部分数据取决于
-miniQMT 本地缓存和账号权限。
+健康检查：
 
-历史数据请求按闭区间时间范围返回；长周期分钟数据建议按日期分段请求，避免单个 JSON
-响应过大。交易日历、合约信息和除权因子暂由 AKQuant/上层数据源负责，不在 QmtLink 中
-重复建模。
+```bash
+curl \
+  -H 'X-API-Key: <api_key>' \
+  http://192.168.1.150:8000/api/v1/health
+```
 
-事件接口使用单调递增序号；客户端只有在成功处理一批事件后才保存
-`next_sequence`。短暂断线后从该序号继续轮询，不需要猜测断线期间是否漏掉成交。事件还
-包含 `order_error` 和 `cancel_error`，调用方必须显式处理失败回报。若游标早于服务端保留
-窗口，接口返回 `EVENT_CURSOR_EXPIRED`；若 QmtLink 服务进程重启导致旧游标超前，则返回
-`EVENT_CURSOR_INVALID`。两种情况都必须重新查询账户、持仓、当日委托和成交后再恢复事件
-消费。事件日志位于内存，不承诺跨服务进程重启续读。
+查询持仓：
 
-量化项目与 bridge 在同一台机器时，SDK 会自动读取同一份配置。分开部署时，在量化项目机器
-的配置文件中设置 `url`，并使用与 bridge 相同的 `api_key`。
+```bash
+curl \
+  -H 'X-API-Key: <api_key>' \
+  http://192.168.1.150:8000/api/v1/account/positions
+```
+
+读取历史日线：
+
+```bash
+curl \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: <api_key>' \
+  -d '{"symbols":["000001.SZ"],"period":"1d","start_time":"20200101","end_time":"20241231","dividend_type":"front_ratio"}' \
+  http://192.168.1.150:8000/api/v1/market/history
+```
+
+启动后可在 `http://<bridge-host>:8000/docs` 查看 OpenAPI 交互文档，在
+`/openapi.json` 获取机器可读的接口定义。
+
+### 响应格式
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "request_id": "req_...",
+  "data": {},
+  "meta": {"elapsed_ms": 1.234}
+}
+```
+
+失败响应：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "error detail",
+    "retryable": false
+  }
+}
+```
+
+调用方应按 `error.code` 和 `retryable` 处理错误，不要依赖自然语言错误文本。
+
+### 接口概览
+
+- `GET /api/v1/health`：bridge 与 miniQMT 连接状态；
+- `GET /api/v1/capabilities`：bridge 能力；
+- `POST /api/v1/market/quotes`：行情快照；
+- `POST /api/v1/market/history`：历史 tick/K 线；
+- `POST /api/v1/market/instruments`：合约信息；
+- `POST /api/v1/market/financial`：财务数据；
+- `POST /api/v1/market/dividends`：除权除息数据；
+- `POST /api/v1/market/historical-st`：历史 ST 区间；
+- `POST /api/v1/market/sectors`：板块成分股；
+- `POST /api/v1/market/subscriptions`：订阅实时行情；
+- `GET /api/v1/events`：续读行情、委托、成交和账户事件；
+- `GET /api/v1/account/asset`：账户资产；
+- `GET /api/v1/account/positions`：持仓；
+- `GET /api/v1/account/orders`：当日委托；
+- `GET /api/v1/account/trades`：当日成交；
+- `POST /api/v1/orders/preview`：校验订单并预估金额；
+- `POST /api/v1/orders`：下单；
+- `GET /api/v1/orders/{order_id}`：查询订单；
+- `POST /api/v1/orders/{order_id}/cancel`：撤单。
+
+## 历史数据约定
+
+`POST /api/v1/market/history` 默认返回 xtdata 原始字段，数据按 `bars[symbol]` 分组。常用字段
+包括 `time`、`open`、`high`、`low`、`close`、`volume`、`amount`、`preClose` 和
+`suspendFlag`。日线额外提供 `date`（`YYYYMMDD` 整数）。
+
+请求默认先读取 xtdata 本地缓存；没有缓存时才补充历史数据并重新读取。`fill_data` 默认关闭，
+复权方式默认 `none`。接口接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回
+时保留请求中的代码形式。
+
+财务回测应使用 `report_type = "announce_time"`。历史涨跌停价使用历史行情的
+`stoppricedata` 周期。部分数据取决于 miniQMT 本地缓存和账号权限。
+
+## 事件续读
+
+事件接口使用单调递增序号。调用方只有在成功处理一批事件后才保存 `next_sequence`，短暂断线
+后从该序号继续请求。
+
+如果游标早于服务端保留窗口，接口返回 `EVENT_CURSOR_EXPIRED`；如果 bridge 重启导致旧游标
+超前，返回 `EVENT_CURSOR_INVALID`。两种情况都需要重新查询账户、持仓、当日委托和成交，
+再恢复事件消费。事件日志位于内存，不承诺跨进程重启续读。
 
 ## 交易安全
 
-- 当前只开放限价单；不同交易所的市价类型规则不同，在完成真实环境验证前不做模糊映射。
-- 真实下单和撤单默认关闭。
-- 配置文件必须增加 `allow_trading = true` 才允许提交。
-- 命令行还必须显式提供 `--live`。
-- 每笔订单必须携带唯一的 `client_order_id`。
-- `client_order_id` 会写入 SQLite，重启后仍会阻止重复提交。
+- 当前只开放限价单；
+- 真实下单和撤单默认关闭；
+- 配置文件必须设置 `allow_trading = true`；
+- 下单和撤单请求还必须携带 `live = true`；
+- 每笔订单必须携带唯一的 `client_order_id`；
+- `client_order_id` 写入 SQLite，bridge 重启后仍会阻止重复提交；
 - 下单超时后必须先查询订单状态，不能直接重试。
-- API 密钥由 QmtLink 自动生成并保存在本地配置中，不要提交到 Git 仓库。
 
-## 配置项
+## 配置
 
-默认配置文件位置：
-
-- Windows/Linux/macOS：`~/.config/qmtlink/config.toml`
-
-配置文件使用 TOML 分区，分别区分 server 和 client；顶层 `api_key` 由两者共用。首次执行 `qmt bridge run` 时，
-QmtLink 会根据[配置模板](src/qmtlink/config.template.toml)生成配置。
-
-普通股票账户只需填写 `qmt_path` 和 `account_id`。两项都为空时自动使用 Mock 模式，两项
-都填写后自动使用真实模式；只填写一项会报告配置错误。自动生成的 `api_key` 应保留原值。
-
-### 完整示例
-
-请直接参考[配置模板](src/qmtlink/config.template.toml)；未列出的高级参数使用程序默认值。
-
-### 字段说明
+默认配置文件为 `~/.config/qmtlink/config.toml`，幂等数据库位于同一目录的
+`orders.sqlite3`。完整模板见 [src/qmtlink/config.template.toml](src/qmtlink/config.template.toml)。
 
 | 配置项 | 环境变量覆盖 | 默认值 | 说明 |
 |---|---|---|---|
-| `api_key` | `QMTLINK_API_KEY` | 首次运行时自动生成 | 顶层共享访问密钥，CLI、SDK 和 bridge 必须保持一致 |
-| `server.qmt_path` | `QMTLINK_QMT_PATH` | 空 | miniQMT 的 `userdata_mini` 完整路径，真实模式必填 |
-| `server.account_id` | `QMTLINK_ACCOUNT_ID` | 空 | miniQMT 资金账号，真实模式必填 |
-| `server.account_type` | `QMTLINK_ACCOUNT_TYPE` | `STOCK` | 账户类型；普通股票为 `STOCK`，融资融券通常为 `CREDIT` |
-| `server.strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名称 |
-| `server.host` | `QMTLINK_HOST` | `0.0.0.0` | bridge 监听地址；允许局域网访问，请勿直接暴露到公网 |
-| `server.port` | `QMTLINK_PORT` | `8000` | bridge 监听端口，也可通过 `qmt bridge run --port` 临时覆盖 |
-| `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单；Mock 模式不受影响，开启后 CLI 仍需显式传入 `--live` |
-| `client.url` | `QMTLINK_URL` | 根据 server 地址生成 | CLI 和 Python SDK 访问 bridge 的地址，分开部署时需要设置 |
-| `client.timeout` | `QMTLINK_TIMEOUT` | `30.0` | CLI 和 Python SDK 的 HTTP 请求超时秒数 |
-幂等数据库与配置文件放在同一目录：`~/.config/qmtlink/orders.sqlite3`。
+| `api_key` | `QMTLINK_API_KEY` | 首次运行自动生成 | HTTP API 密钥 |
+| `server.qmt_path` | `QMTLINK_QMT_PATH` | 空 | miniQMT `userdata_mini` 完整路径 |
+| `server.account_id` | `QMTLINK_ACCOUNT_ID` | 空 | 资金账号 |
+| `server.account_type` | `QMTLINK_ACCOUNT_TYPE` | `STOCK` | 账户类型 |
+| `server.strategy_name` | `QMTLINK_STRATEGY_NAME` | `qmtlink` | 写入委托记录的策略名 |
+| `server.host` | `QMTLINK_HOST` | `0.0.0.0` | HTTP 监听地址 |
+| `server.port` | `QMTLINK_PORT` | `8000` | HTTP 监听端口 |
+| `server.allow_trading` | `QMTLINK_ALLOW_TRADING` | `false` | 是否允许真实下单和撤单 |
 
-### 覆盖规则
+配置优先级为：环境变量、`config.toml`、程序默认值。可用 `QMTLINK_CONFIG` 指定其他配置文件。
 
-配置优先级从高到低为：
-
-1. `qmt bridge run` 的 `--mock`、`--host`、`--port` 参数
-2. 对应的 `QMTLINK_*` 环境变量
-3. `config.toml`
-4. 程序内置默认值
-
-如需把配置放到其他位置，可设置 `QMTLINK_CONFIG` 指向目标文件。
-
-## 参与开发
+## 开发
 
 ```bash
-uv sync --all-extras --dev
+uv sync --locked --dev
 uv run pytest
 uv run ruff check .
 uv build --no-sources
 ```
 
-后续计划见 [ROADMAP.md](ROADMAP.md)，发版说明见
-[docs/RELEASING.md](docs/RELEASING.md)。
+后续计划见 [ROADMAP.md](ROADMAP.md)，发版说明见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 ## 许可证
 
-本项目使用 MIT 许可证。QmtLink 与 miniQMT、QMT、xtquant 及其权利方不存在官方隶属或
-背书关系。
+QmtLink 使用 MIT 许可证，与 miniQMT、QMT、xtquant 及其权利方不存在官方隶属或背书关系。

@@ -1,4 +1,4 @@
-from .cli.main import main
+from .server.runner import main
 
 if __name__ == "__main__":
     main()
