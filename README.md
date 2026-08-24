@@ -133,7 +133,7 @@ curl \
 curl \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: <api_key>' \
-  -d '{"symbols":["000001.SZ"],"period":"1d","start_time":"20200101","end_time":"20241231","dividend_type":"front_ratio"}' \
+  -d '{"symbols":["000001.SZ"],"period":"1d","start_time":"20200101","end_time":"20241231","dividend_type":"front_ratio","download":true}' \
   http://192.168.1.150:8000/api/v1/market/history
 ```
 
@@ -196,9 +196,14 @@ curl \
 包括 `time`、`open`、`high`、`low`、`close`、`volume`、`amount`、`preClose` 和
 `suspendFlag`。日线额外提供 `date`（`YYYYMMDD` 整数）。
 
-请求默认先读取 xtdata 本地缓存；没有缓存时才补充历史数据并重新读取。`fill_data` 默认关闭，
-复权方式默认 `none`。接口接受 QMT 常用的 `.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回
-时保留请求中的代码形式。
+`download` 使用兼容的三态语义：省略时先读取 xtdata 本地缓存，仅当某个标的完全没有结果时
+补充数据；设为 `false` 时严格只读缓存；设为 `true` 时先调用 xtquant 增量下载，再读取缓存。
+增量下载只补充本地最后一条数据之后的尾部，不修复更早的中间缺口；需要修复指定历史区间时
+应使用后续提供的范围刷新能力。大批量更新建议调用方每批控制在 10 至 20 个标的。
+
+所有同步 xtquant 调用均在线程池中运行。长时间下载仍会占用当前 HTTP 请求，但不会再阻塞
+健康检查和整个 bridge。`fill_data` 默认关闭，复权方式默认 `none`。接口接受 QMT 常用的
+`.SH`，也接受 AKQuant/StockDB 使用的 `.SS`，返回时保留请求中的代码形式。
 
 财务回测应使用 `report_type = "announce_time"`。历史涨跌停价使用历史行情的
 `stoppricedata` 周期。部分数据取决于 miniQMT 本地缓存和账号权限。

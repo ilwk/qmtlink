@@ -109,54 +109,54 @@ def create_app(
         )
 
     @app.get("/api/v1/health")
-    async def health() -> dict[str, object]:
+    def health() -> dict[str, object]:
         started = time.perf_counter()
         data = {"version": __version__, **backend.health()}
         return _success(data, started)
 
     @app.get("/api/v1/capabilities")
-    async def capabilities() -> dict[str, object]:
+    def capabilities() -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.capabilities(), started)
 
     @app.post("/api/v1/market/quotes")
-    async def quotes(payload: QuoteRequest) -> dict[str, object]:
+    def quotes(payload: QuoteRequest) -> dict[str, object]:
         started = time.perf_counter()
         data = [quote.model_dump(mode="json") for quote in backend.get_quotes(payload.symbols)]
         return _success(data, started)
 
     @app.post("/api/v1/market/history")
-    async def market_history(payload: HistoryRequest) -> dict[str, object]:
+    def market_history(payload: HistoryRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_history(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/instruments")
-    async def instruments(payload: InstrumentRequest) -> dict[str, object]:
+    def instruments(payload: InstrumentRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_instruments(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/financial")
-    async def financial(payload: FinancialRequest) -> dict[str, object]:
+    def financial(payload: FinancialRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_financial(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/dividends")
-    async def dividends(payload: DividendRequest) -> dict[str, object]:
+    def dividends(payload: DividendRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_dividends(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/historical-st")
-    async def historical_st(payload: InstrumentRequest) -> dict[str, object]:
+    def historical_st(payload: InstrumentRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_historical_st(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/sectors")
-    async def sectors(payload: SectorRequest) -> dict[str, object]:
+    def sectors(payload: SectorRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_sector_symbols(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/market/subscriptions")
-    async def subscribe_quotes(payload: QuoteRequest) -> dict[str, object]:
+    def subscribe_quotes(payload: QuoteRequest) -> dict[str, object]:
         started = time.perf_counter()
         subscription = backend.subscribe_quotes(payload.symbols)
         return _success(subscription.model_dump(mode="json"), started)
@@ -181,18 +181,18 @@ def create_app(
         return _success(batch.model_dump(mode="json"), started)
 
     @app.get("/api/v1/account/asset")
-    async def account_asset() -> dict[str, object]:
+    def account_asset() -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.get_asset().model_dump(mode="json"), started)
 
     @app.get("/api/v1/account/positions")
-    async def account_positions() -> dict[str, object]:
+    def account_positions() -> dict[str, object]:
         started = time.perf_counter()
         data = [item.model_dump(mode="json") for item in backend.get_positions()]
         return _success(data, started)
 
     @app.get("/api/v1/account/orders")
-    async def account_orders(
+    def account_orders(
         cancelable_only: bool = False,
     ) -> dict[str, object]:
         started = time.perf_counter()
@@ -203,18 +203,18 @@ def create_app(
         return _success(data, started)
 
     @app.get("/api/v1/account/trades")
-    async def account_trades() -> dict[str, object]:
+    def account_trades() -> dict[str, object]:
         started = time.perf_counter()
         data = [item.model_dump(mode="json") for item in backend.get_trades()]
         return _success(data, started)
 
     @app.post("/api/v1/orders/preview")
-    async def preview_order(payload: OrderRequest) -> dict[str, object]:
+    def preview_order(payload: OrderRequest) -> dict[str, object]:
         started = time.perf_counter()
         return _success(backend.preview_order(payload).model_dump(mode="json"), started)
 
     @app.post("/api/v1/orders")
-    async def place_order(payload: OrderRequest) -> dict[str, object]:
+    def place_order(payload: OrderRequest) -> dict[str, object]:
         started = time.perf_counter()
         if not payload.live:
             raise HTTPException(
@@ -225,7 +225,7 @@ def create_app(
         return _success(backend.place_order(payload).model_dump(mode="json"), started)
 
     @app.get("/api/v1/orders/{order_id}")
-    async def get_order(order_id: str) -> dict[str, object]:
+    def get_order(order_id: str) -> dict[str, object]:
         started = time.perf_counter()
         order = backend.get_order(order_id)
         if order is None:
@@ -236,7 +236,7 @@ def create_app(
         return _success(order.model_dump(mode="json"), started)
 
     @app.post("/api/v1/orders/{order_id}/cancel")
-    async def cancel_order(
+    def cancel_order(
         order_id: str,
         payload: CancelRequest,
     ) -> dict[str, object]:

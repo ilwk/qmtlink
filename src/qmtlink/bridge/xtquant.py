@@ -281,11 +281,11 @@ class XtQuantBridge:
             )
         return quotes
 
-    def _invoke_xtdata(self, method: str, *args: object) -> Any:
+    def _invoke_xtdata(self, method: str, *args: object, **kwargs: object) -> Any:
         with self._lock:
             self._ensure_connected()
             try:
-                return getattr(self._xtdata, method)(*args)
+                return getattr(self._xtdata, method)(*args, **kwargs)
             except QMTLinkError:
                 raise
             except Exception as exc:
@@ -364,6 +364,8 @@ class XtQuantBridge:
         data_symbols = [
             f"{symbol[:-3]}.SH" if symbol.endswith(".SS") else symbol for symbol in request.symbols
         ]
+        if request.download is True:
+            self._download_history(request, data_symbols, incrementally=True)
         raw = self._get_market_data(request, data_symbols)
         if not isinstance(raw, dict):
             raise QMTLinkError(
@@ -375,7 +377,7 @@ class XtQuantBridge:
         missing_symbols = [
             symbol for symbol in data_symbols if not self._history_rows(raw.get(symbol))
         ]
-        if missing_symbols:
+        if missing_symbols and request.download is None:
             self._download_history(request, missing_symbols)
             raw = self._get_market_data(request, data_symbols)
         if not isinstance(raw, dict):
@@ -552,7 +554,13 @@ class XtQuantBridge:
             request.fill_data,
         )
 
-    def _download_history(self, request: HistoryRequest, symbols: list[str]) -> None:
+    def _download_history(
+        self,
+        request: HistoryRequest,
+        symbols: list[str],
+        *,
+        incrementally: bool | None = None,
+    ) -> None:
         downloader = getattr(self._xtdata, "download_history_data2", None)
         if callable(downloader):
             self._invoke_xtdata(
@@ -561,6 +569,7 @@ class XtQuantBridge:
                 request.period,
                 request.start_time,
                 request.end_time,
+                incrementally=incrementally,
             )
             return
         for symbol in symbols:
@@ -570,6 +579,7 @@ class XtQuantBridge:
                 request.period,
                 request.start_time,
                 request.end_time,
+                incrementally=incrementally,
             )
 
     def subscribe_quotes(self, symbols: list[str]) -> QuoteSubscription:

@@ -1,3 +1,7 @@
+import asyncio
+import threading
+import time
+
 import httpx
 import pytest
 
@@ -6,12 +10,14 @@ from qmtlink.config import ServerSettings
 from qmtlink.server.app import create_app
 
 
-def make_client(*, allow_trading: bool = False) -> httpx.AsyncClient:
+def make_client(
+    *, allow_trading: bool = False, bridge: MockBridge | None = None
+) -> httpx.AsyncClient:
     settings = ServerSettings(
         api_key="test-secret",
         allow_trading=allow_trading,
     )
-    transport = httpx.ASGITransport(app=create_app(MockBridge(), settings))
+    transport = httpx.ASGITransport(app=create_app(bridge or MockBridge(), settings))
     return httpx.AsyncClient(transport=transport, base_url="http://testserver")
 
 
@@ -75,6 +81,43 @@ async def test_history_requires_api_key_and_returns_raw_backtest_fields() -> Non
     assert response.status_code == 200
     assert response.json()["data"]["bar_count"] == {"000001.SZ": 1}
     assert "amount" in response.json()["data"]["bars"]["000001.SZ"][0]
+
+
+@pytest.mark.asyncio
+async def test_slow_history_does_not_block_health_check() -> None:
+    release_history = threading.Event()
+
+    class SlowHistoryBridge(MockBridge):
+        def get_history(self, request):
+            release_history.wait(timeout=2)
+            return super().get_history(request)
+
+    timer = threading.Timer(1.0, release_history.set)
+    timer.start()
+    try:
+        async with make_client(bridge=SlowHistoryBridge()) as client:
+            started = time.perf_counter()
+            history_task = asyncio.create_task(
+                client.post(
+                    "/api/v1/market/history",
+                    headers={"X-API-Key": "test-secret"},
+                    json={"symbols": ["000001.SZ"], "count": 1},
+                )
+            )
+            health_task = asyncio.create_task(
+                client.get("/api/v1/health", headers={"X-API-Key": "test-secret"})
+            )
+
+            health = await health_task
+            health_elapsed = time.perf_counter() - started
+            release_history.set()
+            history = await history_task
+    finally:
+        timer.cancel()
+
+    assert health.status_code == 200
+    assert health_elapsed < 0.5
+    assert history.status_code == 200
 
 
 @pytest.mark.asyncio

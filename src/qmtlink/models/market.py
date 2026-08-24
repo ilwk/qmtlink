@@ -55,6 +55,7 @@ class HistoryRequest(BaseModel):
     count: int = Field(default=-1, ge=-1, le=5_000_000)
     dividend_type: DividendType = "none"
     fill_data: bool = False
+    download: bool | None = None
     fields: list[str] = Field(default_factory=list, max_length=100)
 
     @field_validator("symbols")

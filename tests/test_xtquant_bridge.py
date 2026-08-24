@@ -158,9 +158,13 @@ def install_fake_xtquant(monkeypatch) -> None:
     data.get_full_tick = lambda symbols: {
         symbol: {"lastPrice": 10.5, "volume": 1000, "time": 1_786_000_000_000} for symbol in symbols
     }
-    data.download_history_data2 = lambda symbols, period, start, end: data.download_calls.append(
-        (symbols, period, start, end)
-    )
+
+    def download_history_data2(
+        symbols, period, start, end, callback=None, incrementally=None
+    ) -> None:
+        data.download_calls.append((symbols, period, start, end, incrementally))
+
+    data.download_history_data2 = download_history_data2
 
     def get_market_data_ex(fields, symbols, period, start, end, count, dividend, fill):
         data.history_calls.append((symbols, period, start, end))
@@ -387,8 +391,61 @@ def test_history_downloads_only_when_cache_has_no_rows(monkeypatch) -> None:
     )
 
     assert history.bar_count == {"510300.SH": 1}
-    assert data.download_calls == [(["510300.SH"], "1d", "20240101", "20240105")]
+    assert data.download_calls == [(["510300.SH"], "1d", "20240101", "20240105", None)]
     assert calls == 2
+
+
+def test_history_download_false_reads_cache_without_downloading(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
+    import xtquant.xtdata as data
+
+    data.get_market_data_ex = lambda *_args: {}
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+        )
+    )
+
+    history = bridge.get_history(
+        HistoryRequest(
+            symbols=["510300.SH"],
+            period="1d",
+            start_time="20240101",
+            end_time="20240105",
+            download=False,
+        )
+    )
+
+    assert history.bar_count == {"510300.SH": 0}
+    assert data.download_calls == []
+
+
+def test_history_download_true_incrementally_updates_cached_data(monkeypatch) -> None:
+    install_fake_xtquant(monkeypatch)
+    monkeypatch.setattr("qmtlink.bridge.xtquant.default_idempotency_path", lambda: ":memory:")
+    import xtquant.xtdata as data
+
+    bridge = XtQuantBridge(
+        ServerSettings(
+            qmt_path="C:/miniQMT/userdata_mini",
+            account_id="test-account",
+        )
+    )
+
+    history = bridge.get_history(
+        HistoryRequest(
+            symbols=["510300.SH"],
+            period="1d",
+            start_time="20240101",
+            end_time="20240105",
+            download=True,
+        )
+    )
+
+    assert history.bar_count == {"510300.SH": 1}
+    assert data.download_calls == [(["510300.SH"], "1d", "20240101", "20240105", True)]
 
 
 def test_daily_history_converts_yyyymmdd_time_to_date(monkeypatch) -> None:
